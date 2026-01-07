@@ -1,0 +1,70 @@
+# Core Dependencies
+python-dotenv
+pyyaml
+python-box
+ensure
+types-PyYAML
+
+# AI/ML - Free Models
+groq
+google-generativeai
+transformers
+torch
+torchvision
+accelerate
+sentencepiece
+
+# LangChain - For Advanced AI Features
+langchain
+langchain-community
+langchain-core
+langchain-groq
+langchain-google-genai
+faiss-cpu
+chromadb
+
+# Image Processing
+Pillow
+opencv-python
+
+# Web Framework
+fastapi
+uvicorn[standard]
+python-multipart
+jinja2
+
+# Data Processing
+pandas
+numpy
+scikit-learn
+
+# Database (Optional - for saving recipes)
+pymongo
+
+# Utilities
+requests
+aiofiles
+python-jose[cryptography]
+
+# Testing
+pytest
+pytest-cov
+pytest-asyncio
+
+# Logging
+loguru
+
+# Data Validation
+pydantic
+pydantic-settings
+
+# Progress Bars
+tqdm
+
+# JSON handling
+orjson
+
+# HTTP Client
+httpx
+
+-e .
