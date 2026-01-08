@@ -1,0 +1,10 @@
+artifacts_root: artifacts
+
+# Data Ingestion Configuration
+data_ingestion:
+  root_dir: artifacts/data_ingestion
+  source_url: "https://image-recipe-generator.s3.ap-south-1.amazonaws.com/Food/"
+  local_data_file: artifacts/data_ingestion/data.zip
+  unzip_dir: artifacts/data_ingestion
+  raw_images_dir: data/raw/images
+  raw_recipes_dir: data/raw/recipes

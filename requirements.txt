@@ -67,4 +67,6 @@ orjson
 # HTTP Client
 httpx
 
+box
+boto3
 -e .
