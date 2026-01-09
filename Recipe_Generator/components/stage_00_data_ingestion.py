@@ -12,12 +12,17 @@ class DataIngestion:
         self.config = config
         logger.info("Data Ingestion component initialized")
         
-        self.s3_client = None
         try:
-            # Initialize S3 client (Requires 'aws configure' or environment variables)
-            self.s3_client = boto3.client('s3', region_name='ap-south-1')
-            logger.info("AWS S3 client initialized")
+            # Explicitly pull the keys from the .env file
+            self.s3_client = boto3.client(
+                's3',
+                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+                region_name=os.getenv('AWS_REGION', 'ap-south-1')
+            )
+            logger.info("AWS S3 client initialized using .env credentials")
         except Exception as e:
+            self.s3_client = None
             logger.warning(f"AWS S3 client not available: {e}")
 
     def download_file(self):
@@ -27,7 +32,6 @@ class DataIngestion:
         """
         try:
             # Parse Bucket and Key from URL
-            # Example: https://image-recipe-generator.s3.ap-south-1.amazonaws.com/Food/
             url_clean = self.config.source_url.replace("https://", "")
             parts = url_clean.split('/')
             bucket_name = parts[0].split('.')[0]
@@ -36,7 +40,7 @@ class DataIngestion:
             if not self.s3_client:
                 raise ConnectionError("S3 client not initialized. Please check AWS credentials.")
 
-            logger.info(f"Listing and downloading from Bucket: {bucket_name}, Prefix: {s3_prefix}")
+            logger.info(f"Downloading from Bucket: {bucket_name}, Prefix: {s3_prefix}")
 
             # Use paginator to handle folders with more than 1000 files
             paginator = self.s3_client.get_paginator('list_objects_v2')
@@ -52,19 +56,25 @@ class DataIngestion:
                         if s3_key.endswith('/'):
                             continue
                         
-                        # Create local path (mirrors S3 structure inside unzip_dir)
-                        # We remove the prefix from the path to save directly in the target folder
-                        relative_path = os.path.relpath(s3_key, s3_prefix)
-                        local_file_path = os.path.join(self.config.unzip_dir, relative_path)
+                        # FIXED: Handle single file download vs folder download
+                        if s3_key == s3_prefix:
+                            # If downloading a specific file, use its original name
+                            local_file_name = os.path.basename(s3_key)
+                            local_file_path = os.path.join(self.config.unzip_dir, local_file_name)
+                        else:
+                            # If downloading a folder, maintain relative structure
+                            relative_path = os.path.relpath(s3_key, s3_prefix)
+                            local_file_path = os.path.join(self.config.unzip_dir, relative_path)
                         
                         # Ensure local directories exist
                         os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
                         
                         # Download individual file
+                        logger.info(f"Downloading {s3_key} to {local_file_path}")
                         self.s3_client.download_file(bucket_name, s3_key, local_file_path)
                         download_count += 1
             
-            logger.info(f"Successfully downloaded {download_count} files to: {self.config.unzip_dir}")
+            logger.info(f"Successfully downloaded {download_count} files.")
 
         except Exception as e:
             logger.error(f"Download failed: {str(e)}")
@@ -73,15 +83,22 @@ class DataIngestion:
     def extract_zip_file(self):
         """
         Optional: Only runs if local_data_file exists and is a zip.
-        If you are downloading a folder of images directly, this is skipped.
         """
         try:
-            if os.path.exists(self.config.local_data_file) and zipfile.is_zipfile(self.config.local_data_file):
+            # We check for the file in the unzip_dir if it was downloaded there
+            potential_zip = os.path.join(self.config.unzip_dir, os.path.basename(self.config.source_url))
+            
+            target_zip = self.config.local_data_file if os.path.exists(self.config.local_data_file) else potential_zip
+
+            if os.path.exists(target_zip) and zipfile.is_zipfile(target_zip):
                 unzip_path = self.config.unzip_dir
                 os.makedirs(unzip_path, exist_ok=True)
-                with zipfile.ZipFile(self.config.local_data_file, 'r') as zip_ref:
+                with zipfile.ZipFile(target_zip, 'r') as zip_ref:
                     zip_ref.extractall(unzip_path)
                 logger.info(f"Extraction completed to: {unzip_path}")
+                
+                # Optional: Remove the zip after extraction to save space
+                # os.remove(target_zip)
             else:
                 logger.info("No zip file to extract. Skipping extraction step.")
         except Exception as e:
@@ -94,10 +111,10 @@ class DataIngestion:
             # Create the target directory first
             os.makedirs(self.config.unzip_dir, exist_ok=True)
             
-            # Step 1: Download from S3 Folder
+            # Step 1: Download from S3
             self.download_file()
             
-            # Step 2: Attempt extraction (if a zip was downloaded)
+            # Step 2: Attempt extraction
             self.extract_zip_file()
             
             logger.info("--- Data Ingestion Completed Successfully ---")

@@ -1,15 +1,12 @@
-"""
-Data Ingestion Pipeline Runner
-Simple app to download and process data from AWS S3
-"""
 
 from Recipe_Generator.config.configuration import ConfigurationManager
 from Recipe_Generator.components.stage_00_data_ingestion import DataIngestion
 from Recipe_Generator.logger import logger
 from Recipe_Generator.exception import CustomException
+from dotenv import load_dotenv
 import sys
 
-
+load_dotenv()  # Load environment variables from .env file
 def main():
     """Run Data Ingestion Pipeline"""
     try:
