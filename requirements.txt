@@ -69,4 +69,6 @@ httpx
 
 box
 boto3
+
+ensure
 -e .
