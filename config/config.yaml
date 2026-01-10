@@ -11,7 +11,7 @@ data_ingestion:
 
 # Image Processing Configuration
 image_processing: 
-  root_dir: artifacts/image_processing
+  root_dir: artifacts
   processed_dir: artifacts/data/processed/images
   image_size: [224, 224]
   normalize: true

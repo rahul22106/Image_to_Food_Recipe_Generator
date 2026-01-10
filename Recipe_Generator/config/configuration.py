@@ -4,7 +4,7 @@ Configuration Manager - Data Ingestion Only
 
 from Recipe_Generator.constants import CONFIG_FILE_PATH
 from Recipe_Generator.utils.util import read_yaml, create_directories
-from Recipe_Generator.entity.config_entity import DataIngestionConfig
+from Recipe_Generator.entity.config_entity import DataIngestionConfig,ImageProcessingConfig
 from Recipe_Generator.logger import logger
 from pathlib import Path
 
@@ -36,4 +36,19 @@ class ConfigurationManager:
         return data_ingestion_config
 
 
+    def get_image_processing_config(self) -> ImageProcessingConfig:
+        """Get image processing configuration"""
+        config = self.config.image_processing
+        create_directories([config.root_dir, config.processed_dir])
+        
+        image_processing_config = ImageProcessingConfig(
+            root_dir=Path(config.root_dir),
+            processed_dir=Path(config.processed_dir),
+            image_size=tuple(config.image_size),
+            normalize=config.normalize,
+            augmentation=config.augmentation
+        )
+        
+        logger.info("Image Processing Config created")
+        return image_processing_config
 __all__ = ['ConfigurationManager']
