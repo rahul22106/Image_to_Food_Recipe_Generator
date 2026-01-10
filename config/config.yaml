@@ -4,7 +4,15 @@ artifacts_root: artifacts
 data_ingestion:
   root_dir: artifacts/data_ingestion
   source_url: "https://image-recipe-generator.s3.ap-south-1.amazonaws.com/FOOD.zip"
-  local_data_file: artifacts/data_ingestion/data.zip
-  unzip_dir: artifacts/data_ingestion
-  raw_images_dir: data/raw/images
-  raw_recipes_dir: data/raw/recipes
+  local_data_file: artifacts/data_ingestion/FOOD.zip  # ZIP stored here
+  unzip_dir: artifacts/data/raw  # Extract directly to raw folder
+  raw_images_dir: artifacts/data/raw/images
+  raw_recipes_dir: artifacts/data/raw/recipes
+
+# Image Processing Configuration
+image_processing: 
+  root_dir: artifacts/image_processing
+  processed_dir: artifacts/data/processed/images
+  image_size: [224, 224]
+  normalize: true
+  augmentation: false

@@ -18,12 +18,12 @@ def main():
         logger.info("Step 1: Loading configuration...")
         config_manager = ConfigurationManager()
         data_ingestion_config = config_manager.get_data_ingestion_config()
-        logger.info("✅ Configuration loaded")
+        logger.info("Configuration loaded")
         
         # Step 2: Initialize Data Ingestion
         logger.info("Step 2: Initializing Data Ingestion...")
         data_ingestion = DataIngestion(config=data_ingestion_config)
-        logger.info("✅ Data Ingestion initialized")
+        logger.info("Data Ingestion initialized")
         
         # Step 3: Run Pipeline
         logger.info("Step 3: Running Data Ingestion Pipeline...")
@@ -31,21 +31,21 @@ def main():
         
         # Step 4: Success
         logger.info("="*70)
-        logger.info("✅ DATA INGESTION PIPELINE COMPLETED SUCCESSFULLY!")
+        logger.info("DATA INGESTION PIPELINE COMPLETED SUCCESSFULLY!")
         logger.info("="*70)
-        logger.info(f"📁 Images saved to: {images_dir}")
-        logger.info(f"📁 Recipes saved to: {recipes_dir}")
+        logger.info(f"Images saved to: {images_dir}")
+        logger.info(f"Recipes saved to: {recipes_dir}")
         logger.info("="*70)
         
         print("\n" + "="*70)
-        print("✅ SUCCESS! Data ingestion completed")
+        print("SUCCESS! Data ingestion completed")
         print("="*70)
-        print(f"📁 Images: {images_dir}")
-        print(f"📁 Recipes: {recipes_dir}")
+        print(f"Images: {images_dir}")
+        print(f"Recipes: {recipes_dir}")
         print("="*70)
         
     except Exception as e:
-        logger.error("❌ Data Ingestion Pipeline Failed")
+        logger.error("Data Ingestion Pipeline Failed")
         logger.error(str(e))
         raise CustomException(e, sys)
 
@@ -54,9 +54,9 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n⚠️  Pipeline interrupted by user")
+        print("\n\n Pipeline interrupted by user")
         logger.warning("Pipeline interrupted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n\n❌ Error: {str(e)}")
+        print(f"\n\n Error: {str(e)}")
         sys.exit(1)
