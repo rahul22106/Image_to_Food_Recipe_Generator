@@ -29,3 +29,13 @@ text_processing:
   root_dir: artifacts/text_processing
   raw_recipes_dir: artifacts/data/raw/recipes
   processed_recipes_dir: artifacts/text_processing/processed  
+
+embedding_generation:
+  root_dir: artifacts/embedding_generation
+  processed_recipes_dir: artifacts/text_processing/processed
+  embeddings_dir: artifacts/embedding_generation/embeddings
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+  embedding_dim: 384
+  batch_size: 32
+  normalize_embeddings: true
+  use_gpu: true

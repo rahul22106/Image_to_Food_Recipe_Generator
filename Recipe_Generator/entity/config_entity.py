@@ -42,4 +42,15 @@ class TextProcessingConfig:
     raw_recipes_dir: Path
     processed_recipes_dir: Path
 
-__all__ = ['DataIngestionConfig', 'ImageProcessingConfig', 'FeatureExtractionConfig', 'TextProcessingConfig']
+@dataclass(frozen=True)
+class EmbeddingGenerationConfig:
+    root_dir: Path
+    processed_recipes_dir: Path
+    embeddings_dir: Path
+    embedding_model: str
+    embedding_dim: int
+    batch_size: int
+    normalize_embeddings: bool
+    use_gpu: bool    
+
+__all__ = ['DataIngestionConfig', 'ImageProcessingConfig', 'FeatureExtractionConfig', 'TextProcessingConfig', 'EmbeddingGenerationConfig']

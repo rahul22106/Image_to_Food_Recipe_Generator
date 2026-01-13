@@ -4,7 +4,7 @@ Configuration Manager - Data Ingestion Only
 
 from Recipe_Generator.constants import CONFIG_FILE_PATH
 from Recipe_Generator.utils.util import read_yaml, create_directories
-from Recipe_Generator.entity.config_entity import DataIngestionConfig,ImageProcessingConfig,FeatureExtractionConfig,TextProcessingConfig
+from Recipe_Generator.entity.config_entity import DataIngestionConfig,ImageProcessingConfig,FeatureExtractionConfig,TextProcessingConfig, EmbeddingGenerationConfig
 from Recipe_Generator.logger import logger
 from pathlib import Path
 from Recipe_Generator.exception import CustomException
@@ -95,5 +95,26 @@ class ConfigurationManager:
         
         except Exception as e:
             raise CustomException(e, sys)    
-         
+    def get_embedding_generation_config(self) -> EmbeddingGenerationConfig:
+        try:
+            config = self.config.embedding_generation
+            create_directories([config.root_dir])
+            
+            embedding_config = EmbeddingGenerationConfig(
+                root_dir=Path(config.root_dir),
+                processed_recipes_dir=Path(config.processed_recipes_dir),
+                embeddings_dir=Path(config.embeddings_dir),
+                embedding_model=config.get('embedding_model', 'sentence-transformers/all-MiniLM-L6-v2'),
+                embedding_dim=config.get('embedding_dim', 384),
+                batch_size=config.get('batch_size', 32),
+                normalize_embeddings=config.get('normalize_embeddings', True),
+                use_gpu=config.get('use_gpu', True)
+            )
+            
+            logger.info("Embedding Generation config created")
+            return embedding_config
+        
+        except Exception as e:
+            raise CustomException(e, sys)
+            
 __all__ = ['ConfigurationManager']

@@ -71,4 +71,6 @@ box
 boto3
 
 ensure
+
+sentence-transformers
 -e .
