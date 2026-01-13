@@ -1,0 +1,4 @@
+vision_models:
+  resnet50:
+    feature_dim: 2048
+    input_size: [224, 224]

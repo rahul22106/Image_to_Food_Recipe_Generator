@@ -4,10 +4,11 @@ Configuration Manager - Data Ingestion Only
 
 from Recipe_Generator.constants import CONFIG_FILE_PATH
 from Recipe_Generator.utils.util import read_yaml, create_directories
-from Recipe_Generator.entity.config_entity import DataIngestionConfig,ImageProcessingConfig
+from Recipe_Generator.entity.config_entity import DataIngestionConfig,ImageProcessingConfig,FeatureExtractionConfig
 from Recipe_Generator.logger import logger
 from pathlib import Path
-
+from Recipe_Generator.exception import CustomException
+import sys
 
 class ConfigurationManager:
     """Configuration Manager for Data Ingestion"""
@@ -51,4 +52,31 @@ class ConfigurationManager:
         
         logger.info("Image Processing Config created")
         return image_processing_config
+    
+    def get_feature_extraction_config(self) -> FeatureExtractionConfig:
+        try:
+            config = self.config.feature_extraction
+            
+            # Create directories
+            create_directories([config.root_dir])
+            
+            # Use default values if not specified
+            feature_extraction_config = FeatureExtractionConfig(
+                root_dir=Path(config.root_dir),
+                processed_images_dir=Path(config.processed_images_dir),
+                features_dir=Path(config.features_dir),
+                model_name=config.get('model_name', 'resnet50'), 
+                batch_size=config.get('batch_size', 32),          
+                feature_dim=2048,  
+                use_gpu=config.get('use_gpu', True),             
+                pretrained=config.get('pretrained', True),       
+                freeze_weights=config.get('freeze_weights', True)
+            )
+            
+            logger.info("Feature Extraction config created")
+            return feature_extraction_config
+        
+        except Exception as e:
+          raise CustomException(e, sys)
+         
 __all__ = ['ConfigurationManager']

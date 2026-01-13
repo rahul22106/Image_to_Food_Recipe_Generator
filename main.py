@@ -1,6 +1,7 @@
 from Recipe_Generator.config.configuration import ConfigurationManager
 from Recipe_Generator.components.stage_00_data_ingestion import DataIngestion
 from Recipe_Generator.components.stage_01_image_processing import ImageProcessing
+from Recipe_Generator.components.stage_02_feature_extraction import FeatureExtraction
 from Recipe_Generator.logger import logger
 from Recipe_Generator.exception import CustomException
 from dotenv import load_dotenv
@@ -9,7 +10,7 @@ import sys
 load_dotenv()  # Load environment variables from .env file
 
 def main():
-    """Run Data Ingestion and Image Processing Pipeline"""
+    """Run Data Ingestion, Image Processing and Feature Extraction Pipeline"""
     try:
         logger.info("="*70)
         logger.info("STARTING RECIPE GENERATOR PIPELINE")
@@ -54,6 +55,25 @@ def main():
             
         logger.info(f"Image Processing completed")
         logger.info(f"Processed Images saved to: {processed_dir}")
+        
+        # ==================== STAGE 2: FEATURE EXTRACTION ====================
+        logger.info("\n" + "="*70)
+        logger.info("STAGE 2: FEATURE EXTRACTION")
+        logger.info("="*70)
+        
+        # Get feature extraction config
+        feature_extraction_config = config_manager.get_feature_extraction_config()
+        
+        # Initialize and run feature extraction
+        feature_extraction = FeatureExtraction(config=feature_extraction_config)
+        
+        # Pass the processed images directory
+        features_dir = feature_extraction.initiate_feature_extraction(
+            input_dir=image_processing_config.processed_dir
+        )
+            
+        logger.info(f"Feature Extraction completed")
+        logger.info(f"Extracted Features saved to: {features_dir}")
             
         # ==================== PIPELINE COMPLETE ====================
         logger.info("\n" + "="*70)
@@ -62,9 +82,11 @@ def main():
         logger.info(f"Summary:")
         logger.info(f"   Stage 0: Data Ingestion - DONE")
         logger.info(f"   Stage 1: Image Processing - DONE")
+        logger.info(f"   Stage 2: Feature Extraction - DONE")
         logger.info(f"Raw Images: {raw_images_dir}")
         logger.info(f"Processed Images: {processed_dir}")
         logger.info(f"Raw Recipes: {raw_recipes_dir}")
+        logger.info(f"Extracted Features: {features_dir}")
         logger.info("="*70)
             
         print("\n" + "="*70)
@@ -73,6 +95,7 @@ def main():
         print(f"Raw Images: {raw_images_dir}")
         print(f"Processed Images: {processed_dir}")
         print(f"Raw Recipes: {raw_recipes_dir}")
+        print(f"Extracted Features: {features_dir}")
         print("="*70)
         
     except Exception as e:

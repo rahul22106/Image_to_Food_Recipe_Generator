@@ -23,5 +23,17 @@ class ImageProcessingConfig:
     normalize: bool
     augmentation: bool
 
+@dataclass(frozen=True)
+class FeatureExtractionConfig:
+    """Configuration for feature extraction stage"""
+    root_dir: Path
+    processed_images_dir: Path
+    features_dir: Path
+    model_name: str
+    batch_size: int
+    feature_dim: int
+    use_gpu: bool
+    pretrained: bool
+    freeze_weights: bool
 
-__all__ = ['DataIngestionConfig', 'ImageProcessingConfig']
+__all__ = ['DataIngestionConfig', 'ImageProcessingConfig', 'FeatureExtractionConfig']
