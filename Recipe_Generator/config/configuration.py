@@ -4,7 +4,7 @@ Configuration Manager - Data Ingestion Only
 
 from Recipe_Generator.constants import CONFIG_FILE_PATH
 from Recipe_Generator.utils.util import read_yaml, create_directories
-from Recipe_Generator.entity.config_entity import DataIngestionConfig,ImageProcessingConfig,FeatureExtractionConfig
+from Recipe_Generator.entity.config_entity import DataIngestionConfig,ImageProcessingConfig,FeatureExtractionConfig,TextProcessingConfig
 from Recipe_Generator.logger import logger
 from pathlib import Path
 from Recipe_Generator.exception import CustomException
@@ -78,5 +78,22 @@ class ConfigurationManager:
         
         except Exception as e:
           raise CustomException(e, sys)
+        
+    def get_text_processing_config(self) -> TextProcessingConfig:
+        try:
+            config = self.config.text_processing
+            create_directories([config.root_dir])
+            
+            text_processing_config = TextProcessingConfig(
+                root_dir=Path(config.root_dir),
+                raw_recipes_dir=Path(config.raw_recipes_dir),
+                processed_recipes_dir=Path(config.processed_recipes_dir)
+            )
+            
+            logger.info("Text Processing config created")
+            return text_processing_config
+        
+        except Exception as e:
+            raise CustomException(e, sys)    
          
 __all__ = ['ConfigurationManager']

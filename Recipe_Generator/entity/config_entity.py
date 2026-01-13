@@ -36,4 +36,10 @@ class FeatureExtractionConfig:
     pretrained: bool
     freeze_weights: bool
 
-__all__ = ['DataIngestionConfig', 'ImageProcessingConfig', 'FeatureExtractionConfig']
+@dataclass(frozen=True)
+class TextProcessingConfig:
+    root_dir: Path
+    raw_recipes_dir: Path
+    processed_recipes_dir: Path
+
+__all__ = ['DataIngestionConfig', 'ImageProcessingConfig', 'FeatureExtractionConfig', 'TextProcessingConfig']

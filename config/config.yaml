@@ -24,3 +24,8 @@ feature_extraction:
   use_gpu: true
   pretrained: true
   freeze_weights: true
+
+text_processing:
+  root_dir: artifacts/text_processing
+  raw_recipes_dir: artifacts/data/raw/recipes
+  processed_recipes_dir: artifacts/text_processing/processed  
