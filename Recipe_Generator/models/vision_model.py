@@ -1,8 +1,3 @@
-"""
-Vision Model for Feature Extraction
-Supports multiple pre-trained models: ResNet, EfficientNet, Vision Transformer (ViT)
-"""
-
 import torch
 import torch.nn as nn
 from torchvision import models, transforms

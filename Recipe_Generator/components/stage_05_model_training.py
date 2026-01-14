@@ -16,7 +16,13 @@ import mlflow.pytorch
 from Recipe_Generator.entity.config_entity import ModelTrainingConfig
 from Recipe_Generator.logger import logger
 from Recipe_Generator.exception import CustomException
+from Recipe_Generator.models.multimodal_model import MultimodalFusionModel, ContrastiveLoss
+from dotenv import load_dotenv
 
+load_dotenv()
+
+os.environ['MLFLOW_TRACKING_USERNAME'] = os.getenv('MLFLOW_TRACKING_USERNAME')
+os.environ['MLFLOW_TRACKING_PASSWORD'] = os.getenv('MLFLOW_TRACKING_PASSWORD')
 
 class RecipeDataset(Dataset):
     
@@ -59,37 +65,6 @@ class RecipeDataset(Dataset):
         return image_feat, text_embed
 
 
-class MultimodalFusionModel(nn.Module):
-    
-    def __init__(self, image_dim=2048, text_dim=384, hidden_dim=512, output_dim=256):
-        super(MultimodalFusionModel, self).__init__()
-        
-        self.image_projection = nn.Sequential(
-            nn.Linear(image_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(hidden_dim, output_dim)
-        )
-        
-        self.text_projection = nn.Sequential(
-            nn.Linear(text_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(hidden_dim, output_dim)
-        )
-        
-        self.temperature = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
-    
-    def forward(self, image_features, text_embeddings):
-        image_proj = self.image_projection(image_features)
-        text_proj = self.text_projection(text_embeddings)
-        
-        image_proj = image_proj / image_proj.norm(dim=-1, keepdim=True)
-        text_proj = text_proj / text_proj.norm(dim=-1, keepdim=True)
-        
-        return image_proj, text_proj
-
-
 class ModelTraining:
     
     def __init__(self, config: ModelTrainingConfig):
@@ -98,9 +73,10 @@ class ModelTraining:
         logger.info(f"Using device: {self.device}")
         self.model = None
         self.optimizer = None
+        self.loss_fn = ContrastiveLoss()
         self.train_losses = []
         
-        mlflow.set_tracking_uri("mlruns")
+        mlflow.set_tracking_uri(os.getenv('MLFLOW_TRACKING_URI', 'mlruns'))
         mlflow.set_experiment("recipe_generator_training")
         
     def _load_features(self) -> Tuple[np.ndarray, List[str]]:
@@ -196,19 +172,6 @@ class ModelTraining:
         except Exception as e:
             raise CustomException(e, sys)
     
-    def _compute_contrastive_loss(self, image_proj, text_proj, temperature):
-        batch_size = image_proj.shape[0]
-        
-        logits = torch.matmul(image_proj, text_proj.T) * temperature.exp()
-        
-        labels = torch.arange(batch_size).to(self.device)
-        
-        loss_i2t = nn.CrossEntropyLoss()(logits, labels)
-        loss_t2i = nn.CrossEntropyLoss()(logits.T, labels)
-        
-        loss = (loss_i2t + loss_t2i) / 2
-        return loss
-    
     def _train_epoch(self, dataloader: DataLoader, epoch: int) -> float:
         self.model.train()
         epoch_loss = 0.0
@@ -223,7 +186,7 @@ class ModelTraining:
             
             image_proj, text_proj = self.model(image_features, text_embeddings)
             
-            loss = self._compute_contrastive_loss(
+            loss = self.loss_fn(
                 image_proj, 
                 text_proj, 
                 self.model.temperature
