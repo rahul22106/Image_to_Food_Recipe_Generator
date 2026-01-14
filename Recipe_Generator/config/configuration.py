@@ -4,7 +4,7 @@ Configuration Manager - Data Ingestion Only
 
 from Recipe_Generator.constants import CONFIG_FILE_PATH
 from Recipe_Generator.utils.util import read_yaml, create_directories
-from Recipe_Generator.entity.config_entity import DataIngestionConfig,ImageProcessingConfig,FeatureExtractionConfig,TextProcessingConfig, EmbeddingGenerationConfig
+from Recipe_Generator.entity.config_entity import DataIngestionConfig,ImageProcessingConfig,FeatureExtractionConfig,TextProcessingConfig, EmbeddingGenerationConfig, ModelTrainingConfig
 from Recipe_Generator.logger import logger
 from pathlib import Path
 from Recipe_Generator.exception import CustomException
@@ -116,5 +116,27 @@ class ConfigurationManager:
         
         except Exception as e:
             raise CustomException(e, sys)
+
+    def get_model_training_config(self) -> ModelTrainingConfig:
+        try:
+            config = self.config.model_training
+            create_directories([config.root_dir])
             
+            training_config = ModelTrainingConfig(
+                root_dir=Path(config.root_dir),
+                features_dir=Path(config.features_dir),
+                embeddings_dir=Path(config.embeddings_dir),
+                model_dir=Path(config.model_dir),
+                epochs=config.get('epochs', 30),
+                batch_size=config.get('batch_size', 64),
+                learning_rate=config.get('learning_rate', 0.001),
+                use_gpu=config.get('use_gpu', True)
+            )
+            
+            logger.info("Model Training config created")
+            return training_config
+        
+        except Exception as e:
+            raise CustomException(e, sys)
+                
 __all__ = ['ConfigurationManager']

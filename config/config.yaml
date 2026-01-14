@@ -39,3 +39,47 @@ embedding_generation:
   batch_size: 32
   normalize_embeddings: true
   use_gpu: true
+
+model_training:
+  root_dir: artifacts/model_training
+  features_dir: artifacts/feature_extraction/features
+  embeddings_dir: artifacts/embedding_generation/embeddings
+  model_dir: artifacts/model_training/models
+  epochs: 30
+  batch_size: 64
+  learning_rate: 0.001
+  use_gpu: true
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

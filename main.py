@@ -4,6 +4,7 @@ from Recipe_Generator.components.stage_01_image_processing import ImageProcessin
 from Recipe_Generator.components.stage_02_feature_extraction import FeatureExtraction
 from Recipe_Generator.components.stage_03_text_processing import TextProcessing
 from Recipe_Generator.components.stage_04_embedding_generation import EmbeddingGeneration
+from Recipe_Generator.components.stage_05_model_training import ModelTraining
 from Recipe_Generator.logger import logger
 from Recipe_Generator.exception import CustomException
 from dotenv import load_dotenv
@@ -82,6 +83,17 @@ def main():
             
         logger.info(f"Embedding Generation completed")
         logger.info(f"Recipe Embeddings saved to: {embeddings_dir}")
+        
+        logger.info("\n" + "="*70)
+        logger.info("STAGE 5: MODEL TRAINING")
+        logger.info("="*70)
+        
+        training_config = config_manager.get_model_training_config()
+        model_training = ModelTraining(config=training_config)
+        model_dir = model_training.initiate_model_training()
+            
+        logger.info(f"Model Training completed")
+        logger.info(f"Trained Model saved to: {model_dir}")
             
         logger.info("\n" + "="*70)
         logger.info("COMPLETE PIPELINE FINISHED SUCCESSFULLY!")
@@ -92,12 +104,14 @@ def main():
         logger.info(f"   Stage 2: Feature Extraction - DONE")
         logger.info(f"   Stage 3: Text Processing - DONE")
         logger.info(f"   Stage 4: Embedding Generation - DONE")
+        logger.info(f"   Stage 5: Model Training - DONE")
         logger.info(f"Raw Images: {raw_images_dir}")
         logger.info(f"Processed Images: {processed_dir}")
         logger.info(f"Raw Recipes: {raw_recipes_dir}")
         logger.info(f"Extracted Features: {features_dir}")
         logger.info(f"Processed Recipes: {processed_recipes_dir}")
         logger.info(f"Recipe Embeddings: {embeddings_dir}")
+        logger.info(f"Trained Model: {model_dir}")
         logger.info("="*70)
             
         print("\n" + "="*70)
@@ -109,6 +123,7 @@ def main():
         print(f"Extracted Features: {features_dir}")
         print(f"Processed Recipes: {processed_recipes_dir}")
         print(f"Recipe Embeddings: {embeddings_dir}")
+        print(f"Trained Model: {model_dir}")
         print("="*70)
         
     except Exception as e:

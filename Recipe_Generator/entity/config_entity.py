@@ -51,6 +51,17 @@ class EmbeddingGenerationConfig:
     embedding_dim: int
     batch_size: int
     normalize_embeddings: bool
-    use_gpu: bool    
+    use_gpu: bool  
 
-__all__ = ['DataIngestionConfig', 'ImageProcessingConfig', 'FeatureExtractionConfig', 'TextProcessingConfig', 'EmbeddingGenerationConfig']
+@dataclass(frozen=True)
+class ModelTrainingConfig:
+    root_dir: Path
+    features_dir: Path
+    embeddings_dir: Path
+    model_dir: Path
+    epochs: int
+    batch_size: int
+    learning_rate: float
+    use_gpu: bool      
+
+__all__ = ['DataIngestionConfig', 'ImageProcessingConfig', 'FeatureExtractionConfig', 'TextProcessingConfig', 'EmbeddingGenerationConfig', 'ModelTrainingConfig']
