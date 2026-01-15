@@ -6,17 +6,19 @@ from Recipe_Generator.components.stage_03_text_processing import TextProcessing
 from Recipe_Generator.components.stage_04_embedding_generation import EmbeddingGeneration
 from Recipe_Generator.components.stage_05_model_training import ModelTraining
 from Recipe_Generator.components.stage_06_model_evaluation import ModelEvaluation
+from Recipe_Generator.pipeline.prediction_pipeline import PredictionPipeline
 from Recipe_Generator.logger import logger
 from Recipe_Generator.exception import CustomException
 from dotenv import load_dotenv
 import sys
+from pathlib import Path
 
 load_dotenv()
 
-def main():
+def run_training_pipeline():
     try:
         logger.info("="*70)
-        logger.info("STARTING RECIPE GENERATOR PIPELINE")
+        logger.info("STARTING RECIPE GENERATOR TRAINING PIPELINE")
         logger.info("="*70)
         
         logger.info("Step 1: Loading configuration...")
@@ -99,7 +101,7 @@ def main():
         logger.info(f"Evaluation Metrics saved to: {metrics_dir}")
             
         logger.info("\n" + "="*70)
-        logger.info("COMPLETE PIPELINE FINISHED SUCCESSFULLY!")
+        logger.info("TRAINING PIPELINE COMPLETED SUCCESSFULLY!")
         logger.info("="*70)
         logger.info(f"Summary:")
         logger.info(f"   Stage 0: Data Ingestion - DONE")
@@ -121,7 +123,7 @@ def main():
         logger.info("="*70)
             
         print("\n" + "="*70)
-        print("SUCCESS! Complete pipeline finished")
+        print("SUCCESS! Training pipeline completed")
         print("="*70)
         print(f"Raw Images: {raw_images_dir}")
         print(f"Processed Images: {processed_dir}")
@@ -133,10 +135,94 @@ def main():
         print(f"Evaluation Metrics: {metrics_dir}")
         print("="*70)
         
+        return True
+        
+    except Exception as e:
+        logger.error("Training Pipeline Failed")
+        logger.error(str(e))
+        raise CustomException(e, sys)
+
+
+def run_prediction_demo():
+    try:
+        logger.info("\n" + "="*70)
+        logger.info("STAGE 7: PREDICTION DEMO")
+        logger.info("="*70)
+        
+        print("\n" + "="*70)
+        print("INITIALIZING PREDICTION PIPELINE")
+        print("="*70)
+        
+        pipeline = PredictionPipeline()
+        
+        print("✅ Prediction pipeline loaded successfully!")
+        print("\n" + "="*70)
+        print("PREDICTION PIPELINE READY")
+        print("="*70)
+        print("\nYou can now use the pipeline to predict recipes from food images!")
+        print("\nUsage:")
+        print("  from Recipe_Generator.pipeline.prediction_pipeline import PredictionPipeline")
+        print("  pipeline = PredictionPipeline()")
+        print("  results = pipeline.predict_recipe('path/to/food_image.jpg', top_k=5)")
+        print("\nOr run the test script:")
+        print("  python test_prediction.py --image path/to/food_image.jpg")
+        print("  python test_prediction.py --interactive")
+        print("="*70 + "\n")
+        
+        test_images = list(Path("artifacts/data/processed/images").glob("*.jpg"))[:3]
+        
+        if test_images:
+            print("Testing with sample images...\n")
+            
+            for idx, img_path in enumerate(test_images, 1):
+                print(f"\n{'='*70}")
+                print(f"SAMPLE PREDICTION {idx}/{len(test_images)}")
+                print(f"{'='*70}")
+                print(f"Image: {img_path.name}")
+                
+                results = pipeline.predict_recipe(str(img_path), top_k=3)
+                
+                print(f"\nTop 3 Predictions:")
+                for i, recipe in enumerate(results, 1):
+                    print(f"\n  {i}. {recipe['name']}")
+                    print(f"     Similarity: {recipe['similarity_score']:.4f}")
+                
+                print(f"\n{'='*70}\n")
+        
+        logger.info("Prediction demo completed successfully")
+        
+    except Exception as e:
+        logger.warning(f"Prediction demo failed: {str(e)}")
+        print(f"\n⚠️  Prediction demo skipped: {str(e)}")
+        print("You can still run predictions manually using the prediction pipeline.")
+
+
+def main():
+    try:
+        import argparse
+        
+        parser = argparse.ArgumentParser(description="Recipe Generator Pipeline")
+        parser.add_argument('--train', action='store_true', help='Run training pipeline')
+        parser.add_argument('--predict', action='store_true', help='Run prediction demo')
+        parser.add_argument('--all', action='store_true', help='Run complete pipeline (train + predict)')
+        
+        args = parser.parse_args()
+        
+        if args.all or (not args.train and not args.predict):
+            run_training_pipeline()
+            run_prediction_demo()
+        
+        elif args.train:
+            run_training_pipeline()
+        
+        elif args.predict:
+            run_prediction_demo()
+        
     except Exception as e:
         logger.error("Pipeline Failed")
         logger.error(str(e))
         raise CustomException(e, sys)
+
 
 if __name__ == "__main__":
     try:
