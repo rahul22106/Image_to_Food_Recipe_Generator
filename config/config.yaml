@@ -50,6 +50,37 @@ model_training:
   learning_rate: 0.001
   use_gpu: true
 
+model_evaluation:
+  root_dir: artifacts/model_evaluation
+  model_dir: artifacts/model_training/models
+  features_dir: artifacts/feature_extraction/features
+  embeddings_dir: artifacts/embedding_generation/embeddings
+  metrics_dir: artifacts/model_evaluation/metrics
+  k_values: [1, 5, 10, 20]
+  use_gpu: true
+
+prediction:
+  root_dir: artifacts/prediction
+  model_dir: artifacts/model_training/models
+  embeddings_dir: artifacts/embedding_generation/embeddings
+  recipes_dir: artifacts/data/raw/recipes
+  vision_model_name: "resnet50"
+  top_k: 5
+  use_gpu: true
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

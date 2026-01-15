@@ -52,6 +52,8 @@ class RecipeDataset(Dataset):
     def _normalize_id(self, img_id):
         img_id = str(img_id).lower()
         img_id = img_id.replace('processed_', '')
+        import re
+        img_id = re.sub(r'^\d+\.', '', img_id)
         img_id = img_id.replace('.jpg', '').replace('.jpeg', '').replace('.png', '')
         return img_id
     

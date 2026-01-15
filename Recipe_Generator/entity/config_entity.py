@@ -1,8 +1,6 @@
-
-
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple,List
 
 @dataclass(frozen=True)
 class DataIngestionConfig:
@@ -64,4 +62,33 @@ class ModelTrainingConfig:
     learning_rate: float
     use_gpu: bool      
 
-__all__ = ['DataIngestionConfig', 'ImageProcessingConfig', 'FeatureExtractionConfig', 'TextProcessingConfig', 'EmbeddingGenerationConfig', 'ModelTrainingConfig']
+@dataclass(frozen=True)
+class ModelEvaluationConfig:
+    root_dir: Path
+    model_dir: Path
+    features_dir: Path
+    embeddings_dir: Path
+    metrics_dir: Path
+    k_values: List[int]
+    use_gpu: bool
+    
+@dataclass(frozen=True)
+class PredictionConfig:
+    root_dir: Path
+    model_dir: Path
+    embeddings_dir: Path
+    recipes_dir: Path
+    vision_model_name: str
+    top_k: int
+    use_gpu: bool
+
+__all__ = [
+    'DataIngestionConfig', 
+    'ImageProcessingConfig', 
+    'FeatureExtractionConfig', 
+    'TextProcessingConfig', 
+    'EmbeddingGenerationConfig', 
+    'ModelTrainingConfig',
+    'ModelEvaluationConfig',
+    'PredictionConfig'
+]

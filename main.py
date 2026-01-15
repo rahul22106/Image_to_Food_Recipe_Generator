@@ -5,6 +5,7 @@ from Recipe_Generator.components.stage_02_feature_extraction import FeatureExtra
 from Recipe_Generator.components.stage_03_text_processing import TextProcessing
 from Recipe_Generator.components.stage_04_embedding_generation import EmbeddingGeneration
 from Recipe_Generator.components.stage_05_model_training import ModelTraining
+from Recipe_Generator.components.stage_06_model_evaluation import ModelEvaluation
 from Recipe_Generator.logger import logger
 from Recipe_Generator.exception import CustomException
 from dotenv import load_dotenv
@@ -20,19 +21,16 @@ def main():
         
         logger.info("Step 1: Loading configuration...")
         config_manager = ConfigurationManager()
-        data_ingestion_config = config_manager.get_data_ingestion_config()
         logger.info("Configuration loaded")
         
-        logger.info("Step 2: Initializing Data Ingestion...")
-        data_ingestion = DataIngestion(config=data_ingestion_config)
-        logger.info("Data Ingestion initialized")
+        logger.info("\n" + "="*70)
+        logger.info("STAGE 0: DATA INGESTION")
+        logger.info("="*70)
         
-        logger.info("Step 3: Running Data Ingestion Pipeline...")
+        data_ingestion_config = config_manager.get_data_ingestion_config()
+        data_ingestion = DataIngestion(config=data_ingestion_config)
         raw_images_dir, raw_recipes_dir = data_ingestion.initiate_data_ingestion()
         
-        logger.info("="*70)
-        logger.info("DATA INGESTION PIPELINE COMPLETED SUCCESSFULLY!")
-        logger.info("="*70)
         logger.info(f"Raw Images saved to: {raw_images_dir}")
         logger.info(f"Raw Recipes saved to: {raw_recipes_dir}")
         
@@ -46,7 +44,6 @@ def main():
             input_dir=data_ingestion_config.raw_images_dir
         )
             
-        logger.info(f"Image Processing completed")
         logger.info(f"Processed Images saved to: {processed_dir}")
         
         logger.info("\n" + "="*70)
@@ -59,7 +56,6 @@ def main():
             input_dir=image_processing_config.processed_dir
         )
             
-        logger.info(f"Feature Extraction completed")
         logger.info(f"Extracted Features saved to: {features_dir}")
         
         logger.info("\n" + "="*70)
@@ -70,7 +66,6 @@ def main():
         text_processing = TextProcessing(config=text_processing_config)
         processed_recipes_dir = text_processing.initiate_text_processing()
             
-        logger.info(f"Text Processing completed")
         logger.info(f"Processed Recipes saved to: {processed_recipes_dir}")
         
         logger.info("\n" + "="*70)
@@ -81,7 +76,6 @@ def main():
         embedding_generation = EmbeddingGeneration(config=embedding_config)
         embeddings_dir = embedding_generation.initiate_embedding_generation()
             
-        logger.info(f"Embedding Generation completed")
         logger.info(f"Recipe Embeddings saved to: {embeddings_dir}")
         
         logger.info("\n" + "="*70)
@@ -92,8 +86,17 @@ def main():
         model_training = ModelTraining(config=training_config)
         model_dir = model_training.initiate_model_training()
             
-        logger.info(f"Model Training completed")
         logger.info(f"Trained Model saved to: {model_dir}")
+        
+        logger.info("\n" + "="*70)
+        logger.info("STAGE 6: MODEL EVALUATION")
+        logger.info("="*70)
+        
+        evaluation_config = config_manager.get_model_evaluation_config()
+        model_evaluation = ModelEvaluation(config=evaluation_config)
+        metrics_dir = model_evaluation.initiate_model_evaluation()
+            
+        logger.info(f"Evaluation Metrics saved to: {metrics_dir}")
             
         logger.info("\n" + "="*70)
         logger.info("COMPLETE PIPELINE FINISHED SUCCESSFULLY!")
@@ -105,13 +108,16 @@ def main():
         logger.info(f"   Stage 3: Text Processing - DONE")
         logger.info(f"   Stage 4: Embedding Generation - DONE")
         logger.info(f"   Stage 5: Model Training - DONE")
-        logger.info(f"Raw Images: {raw_images_dir}")
-        logger.info(f"Processed Images: {processed_dir}")
-        logger.info(f"Raw Recipes: {raw_recipes_dir}")
-        logger.info(f"Extracted Features: {features_dir}")
-        logger.info(f"Processed Recipes: {processed_recipes_dir}")
-        logger.info(f"Recipe Embeddings: {embeddings_dir}")
-        logger.info(f"Trained Model: {model_dir}")
+        logger.info(f"   Stage 6: Model Evaluation - DONE")
+        logger.info(f"\nOutput Directories:")
+        logger.info(f"   Raw Images: {raw_images_dir}")
+        logger.info(f"   Processed Images: {processed_dir}")
+        logger.info(f"   Raw Recipes: {raw_recipes_dir}")
+        logger.info(f"   Extracted Features: {features_dir}")
+        logger.info(f"   Processed Recipes: {processed_recipes_dir}")
+        logger.info(f"   Recipe Embeddings: {embeddings_dir}")
+        logger.info(f"   Trained Model: {model_dir}")
+        logger.info(f"   Evaluation Metrics: {metrics_dir}")
         logger.info("="*70)
             
         print("\n" + "="*70)
@@ -124,6 +130,7 @@ def main():
         print(f"Processed Recipes: {processed_recipes_dir}")
         print(f"Recipe Embeddings: {embeddings_dir}")
         print(f"Trained Model: {model_dir}")
+        print(f"Evaluation Metrics: {metrics_dir}")
         print("="*70)
         
     except Exception as e:
@@ -135,9 +142,9 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n Pipeline interrupted by user")
+        print("\n\nPipeline interrupted by user")
         logger.warning("Pipeline interrupted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n\n Error: {str(e)}")
+        print(f"\n\nError: {str(e)}")
         sys.exit(1)

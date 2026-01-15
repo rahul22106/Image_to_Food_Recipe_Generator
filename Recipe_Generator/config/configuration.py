@@ -4,7 +4,7 @@ Configuration Manager - Data Ingestion Only
 
 from Recipe_Generator.constants import CONFIG_FILE_PATH
 from Recipe_Generator.utils.util import read_yaml, create_directories
-from Recipe_Generator.entity.config_entity import DataIngestionConfig,ImageProcessingConfig,FeatureExtractionConfig,TextProcessingConfig, EmbeddingGenerationConfig, ModelTrainingConfig
+from Recipe_Generator.entity.config_entity import DataIngestionConfig,ImageProcessingConfig,FeatureExtractionConfig,TextProcessingConfig, EmbeddingGenerationConfig, ModelTrainingConfig,ModelEvaluationConfig,PredictionConfig
 from Recipe_Generator.logger import logger
 from pathlib import Path
 from Recipe_Generator.exception import CustomException
@@ -138,5 +138,47 @@ class ConfigurationManager:
         
         except Exception as e:
             raise CustomException(e, sys)
+        
+    def get_model_evaluation_config(self) -> ModelEvaluationConfig:
+        try:
+            config = self.config.model_evaluation
+            create_directories([config.root_dir])
+            
+            evaluation_config = ModelEvaluationConfig(
+                root_dir=Path(config.root_dir),
+                model_dir=Path(config.model_dir),
+                features_dir=Path(config.features_dir),
+                embeddings_dir=Path(config.embeddings_dir),
+                metrics_dir=Path(config.metrics_dir),
+                k_values=config.get('k_values', [1, 5, 10, 20]),
+                use_gpu=config.get('use_gpu', True)
+            )
+            
+            logger.info("Model Evaluation config created")
+            return evaluation_config
+        
+        except Exception as e:
+            raise CustomException(e, sys)   
+
+    def get_prediction_config(self) -> PredictionConfig:
+        try:
+            config = self.config.prediction
+            create_directories([config.root_dir])
+            
+            prediction_config = PredictionConfig(
+                root_dir=Path(config.root_dir),
+                model_dir=Path(config.model_dir),
+                embeddings_dir=Path(config.embeddings_dir),
+                recipes_dir=Path(config.recipes_dir),
+                vision_model_name=config.get('vision_model_name', 'resnet50'),
+                top_k=config.get('top_k', 5),
+                use_gpu=config.get('use_gpu', True)
+            )
+            
+            logger.info("Prediction config created")
+            return prediction_config
+        
+        except Exception as e:
+            raise CustomException(e, sys)     
                 
 __all__ = ['ConfigurationManager']
