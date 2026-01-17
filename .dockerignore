@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Logs
+logs/
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Environment
+.env
+.env.local
+
+# Documentation
+README.md
+docs/
+
+# CI/CD
+Jenkinsfile
+.github/
+
+# Notebooks
+*.ipynb
+notebooks/
+
+# MacOS
+.DS_Store
+
+# Artifacts (will be mounted as volumes)
+# Uncomment if you want to exclude from image
+# artifacts/
+
+# MLflow
+mlruns/
+
+# Temporary files
+*.tmp
+*.bak

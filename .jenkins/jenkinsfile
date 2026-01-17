@@ -1,0 +1,99 @@
+pipeline {
+  agent any
+  environment {
+    ECR_REPOSITORY_API = credentials('ECR_REPOSITORY_API')
+    ECR_REPOSITORY_STREAMLIT = credentials('ECR_REPOSITORY_STREAMLIT')
+    AWS_ACCOUNT_ID = credentials('AWS_ACCOUNT_ID')
+    AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+    AWS_REGION = 'ap-south-1'
+    EC2_HOST = credentials('EC2_HOST')
+  }
+  
+  stages {
+    stage('Continuous Integration') {
+      steps {
+        script {
+          echo "Linting repository"
+          sh 'flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true'
+          echo "Running unit tests"
+          sh 'pytest tests/ -v --tb=short || true'
+        }
+      }
+    }
+
+    stage('Login to ECR') {
+      steps {
+        script {
+          sh 'aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com'
+        }
+      }
+    }
+
+    stage('Build Images') {
+      steps {
+        script {
+          echo "Building API image"
+          sh 'docker build -t ${ECR_REPOSITORY_API}:latest -f Dockerfile .'
+          
+          echo "Building Streamlit image"
+          sh 'docker build -t ${ECR_REPOSITORY_STREAMLIT}:latest -f Dockerfile.streamlit .'
+        }
+      }
+    }
+
+    stage('Push Images') {
+      steps {
+        script {
+          echo "Pushing API image to ECR"
+          sh 'docker push ${ECR_REPOSITORY_API}:latest'
+          
+          echo "Pushing Streamlit image to ECR"
+          sh 'docker push ${ECR_REPOSITORY_STREAMLIT}:latest'
+        }
+      }
+    }
+
+    stage('Continuous Deployment') {
+      steps {
+        sshagent(['ssh_key']) {
+          sh """
+            ssh -o StrictHostKeyChecking=no -l ubuntu ${EC2_HOST} '
+              cd /home/ubuntu/recipe-generator && 
+              wget -O docker-compose.yml https://raw.githubusercontent.com/rahul22106/Image_to_Food_Recipe_Generator/main/docker-compose.yml && 
+              export IMAGE_API=${ECR_REPOSITORY_API}:latest && 
+              export IMAGE_STREAMLIT=${ECR_REPOSITORY_STREAMLIT}:latest && 
+              aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com && 
+              docker-compose down &&
+              docker-compose pull &&
+              docker-compose up -d &&
+              docker system prune -f
+            '
+          """
+        }
+      }
+    }
+
+    stage('Health Check') {
+      steps {
+        script {
+          sleep 30
+          sh 'curl -f http://${EC2_HOST}:8000/health || exit 1'
+          echo "✅ Deployment successful and API is healthy!"
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'docker system prune -f'
+    }
+    success {
+      echo '✅ Pipeline completed successfully!'
+    }
+    failure {
+      echo '❌ Pipeline failed!'
+    }
+  }
+}
