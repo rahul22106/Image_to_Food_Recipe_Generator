@@ -110,4 +110,5 @@ tqdm
 box
 boto3
 
--e .
+flake8
+pytest

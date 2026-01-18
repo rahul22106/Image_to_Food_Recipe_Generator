@@ -30,8 +30,6 @@ sudo usermod -aG docker $USER
 
 sudo usermod -aG docker jenkins
 
-newgrp docker
-
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 
 sudo apt install unzip -y
