@@ -11,13 +11,40 @@ pipeline {
   }
   
   stages {
+    stage('Setup Environment') {
+      steps {
+        script {
+          // Install required Python tools
+          sh '''
+            pip install flake8 pytest || true
+          '''
+        }
+      }
+    }
+
     stage('Continuous Integration') {
       steps {
         script {
           echo "Linting repository"
-          sh 'flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true'
+          sh 'python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true'
           echo "Running unit tests"
-          sh 'pytest tests/ -v --tb=short || true'
+          sh 'python -m pytest tests/ -v --tb=short || true'
+        }
+      }
+    }
+
+    stage('Create Artifacts Directory') {
+      steps {
+        script {
+          // Create artifacts directory structure for Docker build
+          sh '''
+            mkdir -p artifacts || true
+            mkdir -p artifacts/model_training/models || true
+            mkdir -p artifacts/embedding_generation/embeddings || true
+            mkdir -p artifacts/data/raw/recipes || true
+            mkdir -p artifacts/images || true
+            touch artifacts/.gitkeep || true
+          '''
         }
       }
     }
@@ -25,7 +52,10 @@ pipeline {
     stage('Login to ECR') {
       steps {
         script {
-          sh 'aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com'
+          sh '''
+            aws ecr get-login-password --region ${AWS_REGION} | \
+            docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+          '''
         }
       }
     }
