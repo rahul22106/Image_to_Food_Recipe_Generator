@@ -11,9 +11,7 @@ echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" \
   https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
   /etc/apt/sources.list.d/jenkins.list > /dev/null
 
-sudo apt-get update
 
-sudo apt-get install jenkins -y
 
 sudo systemctl start jenkins
 
@@ -34,7 +32,15 @@ sudo usermod -aG docker jenkins
 
 newgrp docker
 
-sudo apt install awscli -y
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+
+sudo apt install unzip -y
+
+unzip awscliv2.zip
+
+sudo ./aws/install
+
+rm -rf aws awscliv2.zip
 
 sudo systemctl restart jenkins
 

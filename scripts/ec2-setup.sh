@@ -14,21 +14,16 @@ sudo usermod -aG docker $USER
 
 newgrp docker
 
-sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 
-sudo chmod +x /usr/local/bin/docker-compose
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 
-sudo apt install git -y
+sudo apt install unzip -y
 
-sudo apt install awscli -y
+unzip awscliv2.zip
 
-git clone https://github.com/rahul22106/Image_to_Food_Recipe_Generator.git
+sudo ./aws/install
 
-cd Image_to_Food_Recipe_Generator
-
-docker-compose up -d
-
-docker-compose ps
+rm -rf aws awscliv2.zip
 
 
 ## AWS configuration

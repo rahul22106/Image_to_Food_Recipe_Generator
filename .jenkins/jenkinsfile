@@ -60,7 +60,7 @@ pipeline {
           sh """
             ssh -o StrictHostKeyChecking=no -l ubuntu ${EC2_HOST} '
               cd /home/ubuntu/recipe-generator && 
-              wget -O docker-compose.yml https://raw.githubusercontent.com/rahul22106/Image_to_Food_Recipe_Generator/main/docker-compose.yml && 
+              wget -O docker-compose.yaml https://raw.githubusercontent.com/rahul22106/Image_to_Food_Recipe_Generator/refs/heads/main/docker-compose.yaml && 
               export IMAGE_API=${ECR_REPOSITORY_API}:latest && 
               export IMAGE_STREAMLIT=${ECR_REPOSITORY_STREAMLIT}:latest && 
               aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com && 
