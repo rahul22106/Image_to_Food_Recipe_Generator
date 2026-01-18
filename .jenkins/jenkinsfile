@@ -22,12 +22,10 @@ pipeline {
     stage('Create Minimal Requirements') {
       steps {
         sh '''
-          # Streamlit requirements
           echo "streamlit>=1.28.0" > requirements_streamlit.txt
           echo "requests>=2.31.0" >> requirements_streamlit.txt
           echo "pillow>=10.0.0" >> requirements_streamlit.txt
           
-          # API requirements with pre-built wheels
           echo "fastapi>=0.104.0" > requirements_api.txt
           echo "uvicorn>=0.24.0" >> requirements_api.txt
           echo "numpy==1.24.0" >> requirements_api.txt
@@ -35,7 +33,6 @@ pipeline {
           echo "pillow>=10.0.0" >> requirements_api.txt
           echo "requests>=2.31.0" >> requirements_api.txt
           
-          # Keep original if exists
           if [ -f requirements.txt ]; then
             echo "Original requirements.txt exists"
           fi
@@ -69,19 +66,16 @@ pipeline {
           
           sh 'docker system prune -f 2>/dev/null || true'
           
-          // Build API image with proper dependencies
+          // Build API image
           try {
             echo "Building API image..."
             sh '''
               cp requirements_api.txt requirements.txt
-              docker build -t ${ECR_REPOSITORY_API}:latest -f Dockerfile.api .
+              docker build -t ${ECR_REPOSITORY_API}:latest -f Dockerfile .
             '''
             echo "✅ API image built successfully"
           } catch (Exception e) {
             echo "❌ API build failed: ${e.getMessage()}"
-            echo "Trying alternative build..."
-            // This line was causing the error - it should be a string
-            sh 'docker build -t ${ECR_REPOSITORY_API}:latest -f Dockerfile . || echo "Alternative build also failed"'
           }
         }
       }
@@ -114,25 +108,97 @@ pipeline {
         sshagent(['ssh_key']) {
           sh """
             ssh -o StrictHostKeyChecking=no -l ubuntu ${EC2_HOST} '
-              cd /home/ubuntu/recipe-generator || mkdir -p /home/ubuntu/recipe-generator && cd /home/ubuntu/recipe-generator
+              # Create directory if it doesn't exist
+              sudo mkdir -p /home/ubuntu/recipe-generator
+              cd /home/ubuntu/recipe-generator
               
+              echo "=== Downloading docker-compose.yaml ==="
               wget -q -O docker-compose.yaml https://raw.githubusercontent.com/rahul22106/Image_to_Food_Recipe_Generator/refs/heads/main/docker-compose.yaml || echo "Failed to download docker-compose"
               
+              # Check if docker-compose file exists
+              if [ ! -f docker-compose.yaml ]; then
+                echo "Creating default docker-compose.yaml..."
+                cat > docker-compose.yaml << 'EOF'
+version: '3.8'
+
+services:
+  api:
+    image: ${ECR_REPOSITORY_API}:latest
+    container_name: recipe-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  streamlit:
+    image: ${ECR_REPOSITORY_STREAMLIT}:latest
+    container_name: recipe-streamlit
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    environment:
+      - API_URL=http://api:8000
+    restart: unless-stopped
+EOF
+              fi
+              
+              echo "=== Login to ECR ==="
               aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com || echo "ECR login failed"
               
+              echo "=== Stopping existing containers ==="
               docker-compose down 2>/dev/null || true
               docker system prune -f 2>/dev/null || true
               
+              echo "=== Pulling new images ==="
               docker pull ${ECR_REPOSITORY_STREAMLIT}:latest 2>/dev/null || echo "Failed to pull Streamlit image"
               docker pull ${ECR_REPOSITORY_API}:latest 2>/dev/null || echo "Failed to pull API image"
               
+              echo "=== Starting containers ==="
               export IMAGE_API=${ECR_REPOSITORY_API}:latest
               export IMAGE_STREAMLIT=${ECR_REPOSITORY_STREAMLIT}:latest
-              docker-compose up -d 2>/dev/null || echo "Failed to start containers"
               
-              echo "Deployment attempt completed"
-              sleep 5
+              # Debug: Show what we're trying to start
+              echo "API Image: \$IMAGE_API"
+              echo "Streamlit Image: \$IMAGE_STREAMLIT"
+              
+              # Start containers with more debugging
+              docker-compose up -d 2>&1 || {
+                echo "Failed to start containers with docker-compose, trying manual startup..."
+                
+                # Try manual startup as fallback
+                docker run -d \
+                  --name recipe-api \
+                  -p 8000:8000 \
+                  -e ENVIRONMENT=production \
+                  --restart unless-stopped \
+                  ${ECR_REPOSITORY_API}:latest || echo "Failed to start API container"
+                
+                sleep 5
+                
+                docker run -d \
+                  --name recipe-streamlit \
+                  -p 8501:8501 \
+                  -e API_URL=http://${EC2_HOST}:8000 \
+                  --restart unless-stopped \
+                  ${ECR_REPOSITORY_STREAMLIT}:latest || echo "Failed to start Streamlit container"
+              }
+              
+              echo "=== Deployment attempt completed ==="
+              sleep 10
+              
+              echo "=== Checking running containers ==="
               docker ps --format "table {{.Names}}\\t{{.Status}}\\t{{.Ports}}" || true
+              
+              echo "=== Checking container logs ==="
+              docker logs recipe-api --tail 20 2>/dev/null || echo "Could not get API logs"
+              docker logs recipe-streamlit --tail 20 2>/dev/null || echo "Could not get Streamlit logs"
             '
           """
         }
@@ -142,11 +208,13 @@ pipeline {
     stage('Health Check') {
       steps {
         script {
-          sleep 20
+          sleep 30
+          echo "=== Health Checks ==="
+          
           try {
             sh '''
-              curl -f --max-time 10 http://${EC2_HOST}:8000/health || echo "API not responding"
-              echo "✅ API health check passed!"
+              echo "Checking API health..."
+              curl -f --max-time 30 http://${EC2_HOST}:8000/health && echo "✅ API is healthy" || echo "❌ API not responding"
             '''
           } catch (Exception e) {
             echo "⚠️ API health check failed"
@@ -154,8 +222,8 @@ pipeline {
           
           try {
             sh '''
-              curl -f --max-time 10 http://${EC2_HOST}:8501/_stcore/health || echo "Streamlit not responding"
-              echo "✅ Streamlit health check passed!"
+              echo "Checking Streamlit health..."
+              curl -f --max-time 30 http://${EC2_HOST}:8501/_stcore/health && echo "✅ Streamlit is healthy" || echo "❌ Streamlit not responding"
             '''
           } catch (Exception e) {
             echo "⚠️ Streamlit health check failed"
@@ -168,8 +236,20 @@ pipeline {
   post {
     always {
       echo '=== Pipeline execution completed ==='
-      echo "API URL: http://${EC2_HOST}:8000"
-      echo "Streamlit URL: http://${EC2_HOST}:8501"
+      echo "📊 Summary:"
+      echo "  - Images built and pushed to ECR ✅"
+      echo "  - Deployment attempted on EC2"
+      echo ""
+      echo "🔧 Manual debugging steps:"
+      echo "  SSH into EC2: ssh ubuntu@${EC2_HOST}"
+      echo "  Check containers: cd /home/ubuntu/recipe-generator && docker-compose ps"
+      echo "  View API logs: docker logs recipe-api"
+      echo "  View Streamlit logs: docker logs recipe-streamlit"
+      echo ""
+      echo "🌐 URLs:"
+      echo "  API: http://${EC2_HOST}:8000"
+      echo "  Streamlit UI: http://${EC2_HOST}:8501"
+      echo "  API Health: http://${EC2_HOST}:8000/health"
     }
     success {
       echo '✅ Overall pipeline succeeded!'
