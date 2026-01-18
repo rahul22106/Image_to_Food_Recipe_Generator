@@ -11,12 +11,56 @@ pipeline {
   }
   
   stages {
+    stage('Clean Disk Space') {
+      steps {
+        script {
+          echo "Cleaning up disk space before build"
+          sh '''
+            # Clean Docker cache and unused containers/images
+            docker system prune -a -f --volumes || true
+            # Clean Jenkins workspace
+            rm -rf ${WORKSPACE}/.cache ${WORKSPACE}/.npm ${WORKSPACE}/.m2 || true
+            # Check disk space
+            df -h
+            # Check Docker disk usage
+            docker system df
+          '''
+        }
+      }
+    }
+
     stage('Setup Environment') {
       steps {
         script {
           // Install required Python tools
           sh '''
             pip install flake8 pytest || true
+          '''
+        }
+      }
+    }
+
+    stage('Optimize Requirements') {
+      steps {
+        script {
+          // Create a minimal requirements.txt for Streamlit to reduce space
+          sh '''
+            if [ -f requirements.txt ]; then
+              # Create a minimal version for Streamlit (remove heavy ML packages)
+              grep -v "torch\|torchvision\|transformers\|faiss\|onnxruntime\|opencv-python\|chromadb" requirements.txt > requirements_streamlit.txt || cat requirements.txt > requirements_streamlit.txt
+            else
+              # Create minimal requirements
+              echo "streamlit>=1.28.0" > requirements_streamlit.txt
+              echo "requests>=2.31.0" >> requirements_streamlit.txt
+              echo "pillow>=10.0.0" >> requirements_streamlit.txt
+              echo "numpy>=1.24.0" >> requirements_streamlit.txt
+              echo "pandas>=2.0.0" >> requirements_streamlit.txt
+            fi
+            
+            # Also create minimal for API if needed
+            if [ -f requirements.txt ]; then
+              cp requirements.txt requirements_api.txt
+            fi
           '''
         }
       }
@@ -36,13 +80,9 @@ pipeline {
     stage('Create Artifacts Directory') {
       steps {
         script {
-          // Create artifacts directory structure for Docker build
           sh '''
-            mkdir -p artifacts || true
-            mkdir -p artifacts/model_training/models || true
-            mkdir -p artifacts/embedding_generation/embeddings || true
-            mkdir -p artifacts/data/raw/recipes || true
             mkdir -p artifacts/images || true
+            # Create minimal artifacts structure
             touch artifacts/.gitkeep || true
           '''
         }
@@ -63,11 +103,46 @@ pipeline {
     stage('Build Images') {
       steps {
         script {
-          echo "Building API image"
-          sh 'docker build -t ${ECR_REPOSITORY_API}:latest -f Dockerfile .'
+          echo "Building API image with optimized requirements"
+          sh '''
+            # Clean Docker cache before each build
+            docker builder prune -f
+            
+            # Build API with specific requirements
+            if [ -f requirements_api.txt ]; then
+              docker build --no-cache \
+                --build-arg REQUIREMENTS_FILE=requirements_api.txt \
+                -t ${ECR_REPOSITORY_API}:latest \
+                -f Dockerfile .
+            else
+              docker build --no-cache \
+                -t ${ECR_REPOSITORY_API}:latest \
+                -f Dockerfile .
+            fi
+            
+            # Clean cache after API build
+            docker builder prune -f
+          '''
           
-          echo "Building Streamlit image"
-          sh 'docker build -t ${ECR_REPOSITORY_STREAMLIT}:latest -f Dockerfile.streamlit .'
+          echo "Building Streamlit image with minimal dependencies"
+          sh '''
+            # Clean cache before Streamlit build
+            docker builder prune -f
+            
+            # Build Streamlit with minimal requirements
+            cp requirements_streamlit.txt requirements.txt || true
+            docker build --no-cache \
+              -t ${ECR_REPOSITORY_STREAMLIT}:latest \
+              -f Dockerfile.streamlit .
+            
+            # Restore original requirements.txt if it existed
+            if [ -f requirements_api.txt ]; then
+              cp requirements_api.txt requirements.txt || true
+            fi
+            
+            # Clean cache after build
+            docker builder prune -f
+          '''
         }
       }
     }
@@ -117,7 +192,13 @@ pipeline {
 
   post {
     always {
-      sh 'docker system prune -f'
+      sh '''
+        # Aggressive cleanup
+        docker system prune -a -f --volumes || true
+        docker builder prune -a -f || true
+        # Clean workspace
+        rm -rf ${WORKSPACE}/.cache ${WORKSPACE}/.docker ${WORKSPACE}/__pycache__ || true
+      '''
     }
     success {
       echo '✅ Pipeline completed successfully!'
