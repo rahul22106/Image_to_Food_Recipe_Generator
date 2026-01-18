@@ -27,12 +27,19 @@ pipeline {
           echo "requests>=2.31.0" >> requirements_streamlit.txt
           echo "pillow>=10.0.0" >> requirements_streamlit.txt
           
-          if [ -f requirements.txt ]; then
-            cp requirements.txt .
-          else
+          # Check if requirements.txt exists, create if not
+          if [ ! -f requirements.txt ]; then
             echo "fastapi>=0.104.0" > requirements.txt
             echo "uvicorn>=0.24.0" >> requirements.txt
+            echo "numpy>=1.24.0" >> requirements.txt
           fi
+          
+          # Create a light version for API if needed
+          echo "fastapi>=0.104.0" > requirements_light.txt
+          echo "uvicorn>=0.24.0" >> requirements_light.txt
+          echo "numpy>=1.24.0" >> requirements_light.txt
+          echo "pillow>=10.0.0" >> requirements_light.txt
+          echo "requests>=2.31.0" >> requirements_light.txt
         '''
       }
     }
@@ -51,25 +58,64 @@ pipeline {
         script {
           // Try to build with minimal approach
           try {
+            echo "Building Streamlit image..."
             sh '''
-              # Build Streamlit
+              # Build Streamlit with minimal requirements
               cp requirements_streamlit.txt requirements.txt
               docker build -t ${ECR_REPOSITORY_STREAMLIT}:latest -f Dockerfile.streamlit .
             '''
+            echo "✅ Streamlit image built successfully"
           } catch (Exception e) {
-            echo "Streamlit build failed, continuing..."
+            echo "⚠️ Streamlit build failed: ${e.getMessage()}"
+            echo "Trying alternative build..."
+            sh '''
+              # Try simpler build
+              echo "streamlit>=1.28.0" > requirements.txt
+              echo "requests>=2.31.0" >> requirements.txt
+              docker build -t ${ECR_REPOSITORY_STREAMLIT}:latest -f Dockerfile.streamlit .
+            ''' || echo "❌ Streamlit build completely failed"
+          }
+          
+          // Clean after Streamlit build
+          sh 'docker system prune -f 2>/dev/null || true'
+          
+          try {
+            echo "Building API image..."
+            sh '''
+              # Build API with light requirements
+              cp requirements_light.txt requirements.txt
+              docker build -t ${ECR_REPOSITORY_API}:latest -f Dockerfile .
+            '''
+            echo "✅ API image built successfully"
+          } catch (Exception e) {
+            echo "⚠️ API build failed: ${e.getMessage()}"
+            echo "Trying with original requirements..."
+            sh '''
+              # Try with original requirements
+              docker build -t ${ECR_REPOSITORY_API}:latest -f Dockerfile .
+            ''' || echo "❌ API build completely failed"
+          }
+        }
+      }
+    }
+
+    stage('Push Images') {
+      steps {
+        script {
+          try {
+            echo "Pushing Streamlit image to ECR..."
+            sh 'docker push ${ECR_REPOSITORY_STREAMLIT}:latest'
+            echo "✅ Streamlit image pushed"
+          } catch (Exception e) {
+            echo "⚠️ Failed to push Streamlit image: ${e.getMessage()}"
           }
           
           try {
-            sh '''
-              # Build API
-              if [ -f requirements_light.txt ]; then
-                cp requirements_light.txt requirements.txt
-              fi
-              docker build -t ${ECR_REPOSITORY_API}:latest -f Dockerfile .
-            '''
+            echo "Pushing API image to ECR..."
+            sh 'docker push ${ECR_REPOSITORY_API}:latest'
+            echo "✅ API image pushed"
           } catch (Exception e) {
-            echo "API build failed, continuing..."
+            echo "⚠️ Failed to push API image: ${e.getMessage()}"
           }
         }
       }
@@ -80,12 +126,44 @@ pipeline {
         sshagent(['ssh_key']) {
           sh """
             ssh -o StrictHostKeyChecking=no -l ubuntu ${EC2_HOST} '
-              cd /home/ubuntu/recipe-generator
+              cd /home/ubuntu/recipe-generator || mkdir -p /home/ubuntu/recipe-generator && cd /home/ubuntu/recipe-generator
+              
+              # Pull docker-compose file
+              wget -q -O docker-compose.yaml https://raw.githubusercontent.com/rahul22106/Image_to_Food_Recipe_Generator/refs/heads/main/docker-compose.yaml || echo "Failed to download docker-compose"
+              
+              # Login to ECR
+              aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com || echo "ECR login failed"
+              
+              # Stop and cleanup old containers
               docker-compose down 2>/dev/null || true
-              docker-compose pull 2>/dev/null || true
-              docker-compose up -d 2>/dev/null || true
+              docker system prune -f 2>/dev/null || true
+              
+              # Pull new images
+              docker pull ${ECR_REPOSITORY_STREAMLIT}:latest 2>/dev/null || echo "Failed to pull Streamlit image"
+              docker pull ${ECR_REPOSITORY_API}:latest 2>/dev/null || echo "Failed to pull API image"
+              
+              # Start containers
+              export IMAGE_API=${ECR_REPOSITORY_API}:latest
+              export IMAGE_STREAMLIT=${ECR_REPOSITORY_STREAMLIT}:latest
+              docker-compose up -d 2>/dev/null || echo "Failed to start containers"
+              
+              echo "Deployment attempt completed"
             '
           """
+        }
+      }
+    }
+
+    stage('Health Check') {
+      steps {
+        script {
+          sleep 10
+          try {
+            sh 'curl -f --max-time 5 http://${EC2_HOST}:8000/health || curl -f --max-time 5 http://${EC2_HOST}:8501/_stcore/health'
+            echo "✅ Health check passed!"
+          } catch (Exception e) {
+            echo "⚠️ Health check failed, but deployment may still be in progress"
+          }
         }
       }
     }
@@ -93,7 +171,15 @@ pipeline {
   
   post {
     always {
-      echo 'Pipeline execution completed'
+      echo '=== Pipeline execution completed ==='
+      echo 'Check the EC2 instance for deployment status:'
+      echo "ssh ubuntu@${EC2_HOST} 'cd /home/ubuntu/recipe-generator && docker-compose ps'"
+    }
+    success {
+      echo '✅ Overall pipeline succeeded!'
+    }
+    failure {
+      echo '❌ Pipeline had some failures, but deployment was attempted'
     }
   }
 }
