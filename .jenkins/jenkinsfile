@@ -47,7 +47,7 @@ pipeline {
           sh '''
             if [ -f requirements.txt ]; then
               # Create a minimal version for Streamlit (remove heavy ML packages)
-              grep -v "torch\|torchvision\|transformers\|faiss\|onnxruntime\|opencv-python\|chromadb" requirements.txt > requirements_streamlit.txt || cat requirements.txt > requirements_streamlit.txt
+              grep -v "torch\\|torchvision\\|transformers\\|faiss\\|onnxruntime\\|opencv-python\\|chromadb" requirements.txt > requirements_streamlit.txt || cat requirements.txt > requirements_streamlit.txt
             else
               # Create minimal requirements
               echo "streamlit>=1.28.0" > requirements_streamlit.txt
