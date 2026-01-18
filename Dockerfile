@@ -1,40 +1,35 @@
-# Use Python 3.9 slim image
-FROM python:3.9-slim
+FROM python:3.9-alpine
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install minimal system dependencies for Python packages
+RUN apk add --no-cache \
     gcc \
-    g++ \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+    musl-dev \
+    linux-headers \
+    curl
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy requirements
+COPY requirements_light.txt requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies in small batches
+RUN pip install --no-cache-dir --upgrade pip
+
+# Install core dependencies first
+RUN pip install --no-cache-dir \
+    numpy==1.24.0 \
+    pandas==2.0.0 \
+    pillow==10.0.0
+
+# Install from requirements if any
+RUN if [ -f requirements.txt ] && [ -s requirements.txt ]; then \
+    pip install --no-cache-dir -r requirements.txt; \
+    fi
 
 # Copy application code
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p logs artifacts/model_training/models artifacts/embedding_generation/embeddings artifacts/data/raw/recipes
+# Remove build dependencies to save space
+RUN apk del gcc musl-dev linux-headers
 
-# Expose port
-EXPOSE 8000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Run the application
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "app.py"]
