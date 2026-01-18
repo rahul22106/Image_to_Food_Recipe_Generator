@@ -1,28 +1,27 @@
-FROM python:3.9-alpine
+FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install minimal dependencies
-RUN apk add --no-cache curl
+# Install minimal system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
 COPY requirements.txt .
 
-# Install Streamlit and essentials only
+# Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
-    streamlit==1.28.0 \
-    requests==2.31.0 \
-    pillow==10.0.0
+    pip install --no-cache-dir streamlit requests pillow
 
-# Install additional from requirements if very small
-RUN if [ -f requirements.txt ] && [ $(wc -l < requirements.txt) -lt 5 ]; then \
+# Install additional requirements if they exist
+RUN if [ -f requirements.txt ] && [ -s requirements.txt ]; then \
     pip install --no-cache-dir -r requirements.txt; \
     fi
 
-# Copy only Streamlit app
+# Copy application code
 COPY streamlit_app.py .
 
 EXPOSE 8501
 
-CMD ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.maxUploadSize=10"]
+CMD ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
