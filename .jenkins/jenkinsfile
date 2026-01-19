@@ -64,9 +64,9 @@ pipeline {
               cp requirements_streamlit.txt requirements.txt
               docker build -t ${ECR_REPOSITORY_STREAMLIT}:latest -f Dockerfile.streamlit .
             '''
-            echo "✅ Streamlit image built successfully"
+            echo "Streamlit image built successfully"
           } catch (Exception e) {
-            echo "❌ Streamlit build failed: ${e.getMessage()}"
+            echo "Streamlit build failed: ${e.getMessage()}"
           }
           
           sh 'docker system prune -f 2>/dev/null || true'
@@ -77,9 +77,9 @@ pipeline {
               cp requirements_api.txt requirements.txt
               docker build -t ${ECR_REPOSITORY_API}:latest -f Dockerfile .
             '''
-            echo "✅ API image built successfully"
+            echo "API image built successfully"
           } catch (Exception e) {
-            echo "❌ API build failed: ${e.getMessage()}"
+            echo "API build failed: ${e.getMessage()}"
           }
         }
       }
@@ -91,17 +91,17 @@ pipeline {
           try {
             echo "Pushing Streamlit image to ECR..."
             sh 'docker push ${ECR_REPOSITORY_STREAMLIT}:latest'
-            echo "✅ Streamlit image pushed"
+            echo "Streamlit image pushed"
           } catch (Exception e) {
-            echo "⚠️ Failed to push Streamlit image"
+            echo "Failed to push Streamlit image"
           }
           
           try {
             echo "Pushing API image to ECR..."
             sh 'docker push ${ECR_REPOSITORY_API}:latest'
-            echo "✅ API image pushed"
+            echo "API image pushed"
           } catch (Exception e) {
-            echo "⚠️ Failed to push API image"
+            echo "Failed to push API image"
           }
         }
       }
@@ -228,19 +228,19 @@ EOF
           try {
             sh '''
               echo "Checking API health..."
-              curl -f --max-time 30 http://${EC2_HOST}:8000/health && echo "✅ API is healthy" || echo "❌ API not responding"
+              curl -f --max-time 30 http://${EC2_HOST}:8000/health && echo "API is healthy" || echo "API not responding"; exit 0
             '''
           } catch (Exception e) {
-            echo "⚠️ API health check failed"
+            echo "API health check failed"
           }
           
           try {
             sh '''
               echo "Checking Streamlit health..."
-              curl -f --max-time 30 http://${EC2_HOST}:8501/_stcore/health && echo "✅ Streamlit is healthy" || echo "❌ Streamlit not responding"
+              curl -f --max-time 30 http://${EC2_HOST}:8501/_stcore/health && echo "Streamlit is healthy" || echo "Streamlit not responding"; exit 0
             '''
           } catch (Exception e) {
-            echo "⚠️ Streamlit health check failed"
+            echo "Streamlit health check failed"
           }
         }
       }
@@ -250,26 +250,26 @@ EOF
   post {
     always {
       echo '=== Pipeline execution completed ==='
-      echo "📊 Summary:"
-      echo "  - Images built and pushed to ECR ✅"
+      echo "Summary:"
+      echo "  - Images built and pushed to ECR"
       echo "  - Deployment attempted on EC2"
       echo ""
-      echo "🔧 Manual debugging steps:"
+      echo "Manual debugging steps:"
       echo "  SSH into EC2: ssh ubuntu@${EC2_HOST}"
       echo "  Check containers: cd /home/ubuntu/recipe-generator && docker-compose ps"
       echo "  View API logs: docker logs recipe-api"
       echo "  View Streamlit logs: docker logs recipe-streamlit"
       echo ""
-      echo "🌐 URLs:"
+      echo "URLs:"
       echo "  API: http://${EC2_HOST}:8000"
       echo "  Streamlit UI: http://${EC2_HOST}:8501"
       echo "  API Health: http://${EC2_HOST}:8000/health"
     }
     success {
-      echo '✅ Overall pipeline succeeded!'
+      echo 'Overall pipeline succeeded!'
     }
     failure {
-      echo '❌ Pipeline had some failures'
+      echo 'Pipeline had some failures'
     }
   }
 }
