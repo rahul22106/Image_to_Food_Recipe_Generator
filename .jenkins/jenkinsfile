@@ -150,13 +150,13 @@ pipeline {
               docker exec temp-fix python -c "
 try:
     import torch
-    print(f'✓ Torch {torch.__version__} installed')
+    print(f'Torch {torch.__version__} installed')
     from transformers import pipeline
-    print('✓ Transformers installed')
+    print('Transformers installed')
     from Recipe_Generator.components.stage_07_prediction import RecipePrediction
-    print('✓ RecipePrediction import successful')
+    print('RecipePrediction import successful')
 except Exception as e:
-    print(f'✗ Error: {e}')
+    print(f'Error: {e}')
     import traceback
     traceback.print_exc()
 " 2>&1
