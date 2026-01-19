@@ -26,7 +26,13 @@ pipeline {
           echo "requests>=2.31.0" >> requirements_streamlit.txt
           echo "pillow>=10.0.0" >> requirements_streamlit.txt
           
-          echo "fastapi>=0.104.0" > requirements_api.txt
+          # UPDATED: Added torch and ML dependencies to API requirements
+          echo "torch==2.8.0+cpu --index-url https://download.pytorch.org/whl/cpu" > requirements_api.txt
+          echo "transformers==4.40.0" >> requirements_api.txt
+          echo "accelerate==0.30.1" >> requirements_api.txt
+          echo "sentencepiece==0.2.0" >> requirements_api.txt
+          echo "protobuf==4.25.3" >> requirements_api.txt
+          echo "fastapi>=0.104.0" >> requirements_api.txt
           echo "uvicorn>=0.24.0" >> requirements_api.txt
           echo "numpy==1.24.0" >> requirements_api.txt
           echo "pandas==2.0.0" >> requirements_api.txt
@@ -101,99 +107,112 @@ pipeline {
       }
     }
 
-    stage('Deploy') {
+    stage('Deploy and Fix') {  // CHANGED: Renamed from 'Deploy'
       steps {
-        sshagent(['ssh_key']) {
+        sshagent(['ssh_key']) {  // Make sure this matches your Jenkins credential name
           sh """
             ssh -o StrictHostKeyChecking=no -l ubuntu ${EC2_HOST} '
+              # Fix 1: Install docker-compose if missing
+              if ! command -v docker-compose &> /dev/null; then
+                echo "Installing docker-compose..."
+                sudo apt-get update
+                sudo apt-get install -y docker-compose 2>/dev/null || {
+                  sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-\$(uname -s)-\$(uname -m)" -o /usr/local/bin/docker-compose
+                  sudo chmod +x /usr/local/bin/docker-compose
+                  sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose 2>/dev/null || true
+                }
+              fi
+              
               mkdir -p /home/ubuntu/recipe-generator
               cd /home/ubuntu/recipe-generator
               
-              echo "=== Downloading docker-compose.yaml ==="
-              wget -q -O docker-compose.yaml https://raw.githubusercontent.com/rahul22106/Image_to_Food_Recipe_Generator/refs/heads/main/docker-compose.yaml || echo "Failed to download docker-compose"
+              echo "=== Stopping existing containers ==="
+              docker-compose down 2>/dev/null || true
+              docker stop recipe-api recipe-streamlit 2>/dev/null || true
+              docker rm recipe-api recipe-streamlit 2>/dev/null || true
               
-              if [ ! -f docker-compose.yaml ]; then
-                echo "Creating default docker-compose.yaml..."
-                cat > docker-compose.yaml << 'EOF'
+              echo "=== Login to ECR ==="
+              aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+              
+              echo "=== Pulling new images ==="
+              docker pull ${ECR_REPOSITORY_STREAMLIT}:latest
+              docker pull ${ECR_REPOSITORY_API}:latest
+              
+              # Fix 2: Create a fixed API image with all dependencies
+              echo "=== Ensuring all dependencies are installed ==="
+              docker run -d --name temp-fix ${ECR_REPOSITORY_API}:latest sleep infinity
+              sleep 3
+              
+              # Install any potentially missing dependencies
+              docker exec temp-fix pip install transformers accelerate sentencepiece protobuf 2>/dev/null || echo "Some dependencies may already be installed"
+              
+              # Test the imports
+              docker exec temp-fix python -c "
+try:
+    import torch
+    print(f'✓ Torch {torch.__version__} installed')
+    from transformers import pipeline
+    print('✓ Transformers installed')
+    from Recipe_Generator.components.stage_07_prediction import RecipePrediction
+    print('✓ RecipePrediction import successful')
+except Exception as e:
+    print(f'✗ Error: {e}')
+    import traceback
+    traceback.print_exc()
+" 2>&1
+              
+              # Commit the fixed image
+              docker commit temp-fix ${ECR_REPOSITORY_API}:latest-fixed
+              docker stop temp-fix
+              docker rm temp-fix
+              
+              echo "=== Creating docker-compose.yaml ==="
+              cat > docker-compose.yaml << 'EOF'
 version: '3.8'
 
 services:
   api:
-    image: \\\${IMAGE_API}
+    image: ${ECR_REPOSITORY_API}:latest-fixed
     container_name: recipe-api
     ports:
       - "8000:8000"
     environment:
-      - ENVIRONMENT=production
+      - PYTHONUNBUFFERED=1
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
 
   streamlit:
-    image: \\\${IMAGE_STREAMLIT}
+    image: ${ECR_REPOSITORY_STREAMLIT}:latest
     container_name: recipe-streamlit
     ports:
       - "8501:8501"
-    depends_on:
-      - api
     environment:
       - API_URL=http://api:8000
+    depends_on:
+      - api
     restart: unless-stopped
 EOF
-              fi
-              
-              echo "=== Login to ECR ==="
-              aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com || echo "ECR login failed"
-              
-              echo "=== Stopping existing containers ==="
-              docker-compose down 2>/dev/null || true
-              docker stop recipe-api recipe-streamlit 2>/dev/null || true
-              docker rm recipe-api recipe-streamlit 2>/dev/null || true
-              docker system prune -f 2>/dev/null || true
-              
-              echo "=== Pulling new images ==="
-              docker pull ${ECR_REPOSITORY_STREAMLIT}:latest 2>/dev/null || echo "Failed to pull Streamlit image"
-              docker pull ${ECR_REPOSITORY_API}:latest 2>/dev/null || echo "Failed to pull API image"
               
               echo "=== Starting containers ==="
-              export IMAGE_API=${ECR_REPOSITORY_API}:latest
-              export IMAGE_STREAMLIT=${ECR_REPOSITORY_STREAMLIT}:latest
+              docker-compose up -d
               
-              echo "API Image: \$IMAGE_API"
-              echo "Streamlit Image: \$IMAGE_STREAMLIT"
+              echo "=== Waiting for startup ==="
+              sleep 20
               
-              docker-compose up -d 2>&1 || {
-                echo "docker-compose failed, trying manual startup..."
-                
-                docker run -d \
-                  --name recipe-api \
-                  -p 8000:8000 \
-                  -e ENVIRONMENT=production \
-                  --restart unless-stopped \
-                  ${ECR_REPOSITORY_API}:latest || echo "Failed to start API container"
-                
-                sleep 5
-                
-                docker run -d \
-                  --name recipe-streamlit \
-                  -p 8501:8501 \
-                  -e API_URL=http://${EC2_HOST}:8000 \
-                  --restart unless-stopped \
-                  ${ECR_REPOSITORY_STREAMLIT}:latest || echo "Failed to start Streamlit container"
-              }
+              echo "=== Checking containers ==="
+              docker-compose ps
               
-              echo "=== Deployment completed ==="
-              sleep 10
-              
-              echo "=== Running containers ==="
-              docker ps --format "table {{.Names}}\\t{{.Status}}\\t{{.Ports}}" || true
-              
-              echo "=== Container logs ==="
-              docker logs recipe-api --tail 20 2>/dev/null || echo "Could not get API logs"
-              docker logs recipe-streamlit --tail 20 2>/dev/null || echo "Could not get Streamlit logs"
+              echo "=== Checking logs ==="
+              echo "--- API logs ---"
+              docker-compose logs api --tail 30 2>/dev/null || echo "Could not get API logs"
+              echo ""
+              echo "--- Streamlit logs ---"
+              docker-compose logs streamlit --tail 30 2>/dev/null || echo "Could not get Streamlit logs"
             '
           """
         }
