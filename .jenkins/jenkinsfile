@@ -147,19 +147,19 @@ pipeline {
               docker exec temp-fix pip install transformers accelerate sentencepiece protobuf 2>/dev/null || echo "Some dependencies may already be installed"
               
               # Test the imports
-              docker exec temp-fix python -c "
+              docker exec temp-fix python -c '
 try:
     import torch
-    print(f'Torch {torch.__version__} installed')
+    print("Torch version: " + torch.__version__ + " installed")
     from transformers import pipeline
-    print('Transformers installed')
+    print("Transformers installed")
     from Recipe_Generator.components.stage_07_prediction import RecipePrediction
-    print('RecipePrediction import successful')
+    print("RecipePrediction import successful")
 except Exception as e:
-    print(f'Error: {e}')
+    print("Error: " + str(e))
     import traceback
     traceback.print_exc()
-" 2>&1
+' 2>&1
               
               # Commit the fixed image
               docker commit temp-fix ${ECR_REPOSITORY_API}:latest-fixed
@@ -168,7 +168,7 @@ except Exception as e:
               
               echo "=== Creating docker-compose.yaml ==="
               cat > docker-compose.yaml << 'EOF'
-version: '3.8'
+version: "3.8"
 
 services:
   api:
