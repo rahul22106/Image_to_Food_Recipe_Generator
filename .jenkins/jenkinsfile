@@ -52,7 +52,6 @@ pipeline {
     stage('Build Images') {
       steps {
         script {
-          // Build Streamlit image
           try {
             echo "Building Streamlit image..."
             sh '''
@@ -66,7 +65,6 @@ pipeline {
           
           sh 'docker system prune -f 2>/dev/null || true'
           
-          // Build API image
           try {
             echo "Building API image..."
             sh '''
@@ -108,14 +106,12 @@ pipeline {
         sshagent(['ssh_key']) {
           sh """
             ssh -o StrictHostKeyChecking=no -l ubuntu ${EC2_HOST} '
-              # Create directory if it doesn't exist
-              sudo mkdir -p /home/ubuntu/recipe-generator
+              mkdir -p /home/ubuntu/recipe-generator
               cd /home/ubuntu/recipe-generator
               
               echo "=== Downloading docker-compose.yaml ==="
               wget -q -O docker-compose.yaml https://raw.githubusercontent.com/rahul22106/Image_to_Food_Recipe_Generator/refs/heads/main/docker-compose.yaml || echo "Failed to download docker-compose"
               
-              # Check if docker-compose file exists
               if [ ! -f docker-compose.yaml ]; then
                 echo "Creating default docker-compose.yaml..."
                 cat > docker-compose.yaml << 'EOF'
@@ -123,7 +119,7 @@ version: '3.8'
 
 services:
   api:
-    image: ${ECR_REPOSITORY_API}:latest
+    image: \\\${IMAGE_API}
     container_name: recipe-api
     ports:
       - "8000:8000"
@@ -137,7 +133,7 @@ services:
       retries: 3
 
   streamlit:
-    image: ${ECR_REPOSITORY_STREAMLIT}:latest
+    image: \\\${IMAGE_STREAMLIT}
     container_name: recipe-streamlit
     ports:
       - "8501:8501"
@@ -154,6 +150,8 @@ EOF
               
               echo "=== Stopping existing containers ==="
               docker-compose down 2>/dev/null || true
+              docker stop recipe-api recipe-streamlit 2>/dev/null || true
+              docker rm recipe-api recipe-streamlit 2>/dev/null || true
               docker system prune -f 2>/dev/null || true
               
               echo "=== Pulling new images ==="
@@ -164,15 +162,12 @@ EOF
               export IMAGE_API=${ECR_REPOSITORY_API}:latest
               export IMAGE_STREAMLIT=${ECR_REPOSITORY_STREAMLIT}:latest
               
-              # Debug: Show what we're trying to start
               echo "API Image: \$IMAGE_API"
               echo "Streamlit Image: \$IMAGE_STREAMLIT"
               
-              # Start containers with more debugging
               docker-compose up -d 2>&1 || {
-                echo "Failed to start containers with docker-compose, trying manual startup..."
+                echo "docker-compose failed, trying manual startup..."
                 
-                # Try manual startup as fallback
                 docker run -d \
                   --name recipe-api \
                   -p 8000:8000 \
@@ -190,13 +185,13 @@ EOF
                   ${ECR_REPOSITORY_STREAMLIT}:latest || echo "Failed to start Streamlit container"
               }
               
-              echo "=== Deployment attempt completed ==="
+              echo "=== Deployment completed ==="
               sleep 10
               
-              echo "=== Checking running containers ==="
+              echo "=== Running containers ==="
               docker ps --format "table {{.Names}}\\t{{.Status}}\\t{{.Ports}}" || true
               
-              echo "=== Checking container logs ==="
+              echo "=== Container logs ==="
               docker logs recipe-api --tail 20 2>/dev/null || echo "Could not get API logs"
               docker logs recipe-streamlit --tail 20 2>/dev/null || echo "Could not get Streamlit logs"
             '
