@@ -1,17 +1,98 @@
-name: Trigger Jenkins Job
+name: CI/CD Pipeline
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
+env:
+  AWS_REGION: ap-south-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com
+  ECR_REPOSITORY_API: ${{ secrets.ECR_REPOSITORY_API }}
+  ECR_REPOSITORY_STREAMLIT: ${{ secrets.ECR_REPOSITORY_STREAMLIT }}
+
 jobs:
-   trigger:
-    name: Build 
+  build-and-deploy:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Trigger Jenkins Job
-        uses: appleboy/jenkins-action@master
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          url: ${{ secrets.URL }}
-          user: ${{ secrets.USER }}
-          token: ${{ secrets.TOKEN }}
-          job: ${{ secrets.JOBS }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+      
+      - name: Create minimal requirements files
+        run: |
+          echo "streamlit>=1.28.0" > requirements_streamlit.txt
+          echo "requests>=2.31.0" >> requirements_streamlit.txt
+          echo "pillow>=10.0.0" >> requirements_streamlit.txt
+          
+          echo "fastapi>=0.104.0" > requirements_api.txt
+          echo "uvicorn>=0.24.0" >> requirements_api.txt
+          echo "numpy==1.24.0" >> requirements_api.txt
+          echo "pandas==2.0.0" >> requirements_api.txt
+          echo "pillow>=10.0.0" >> requirements_api.txt
+          echo "requests>=2.31.0" >> requirements_api.txt
+      
+      - name: Build and push Streamlit image
+        run: |
+          cp requirements_streamlit.txt requirements.txt
+          docker build -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_STREAMLIT }}:latest -f Dockerfile.streamlit .
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_STREAMLIT }}:latest
+      
+      - name: Build and push API image
+        run: |
+          cp requirements_api.txt requirements.txt
+          docker build -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:latest -f Dockerfile .
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:latest
+      
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            mkdir -p /home/ubuntu/recipe-generator
+            cd /home/ubuntu/recipe-generator
+            
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+            
+            docker stop recipe-api recipe-streamlit 2>/dev/null || true
+            docker rm recipe-api recipe-streamlit 2>/dev/null || true
+            docker system prune -f
+            
+            docker pull ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_STREAMLIT }}:latest
+            docker pull ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:latest
+            
+            docker run -d \
+              --name recipe-api \
+              -p 8000:8000 \
+              -e ENVIRONMENT=production \
+              --restart unless-stopped \
+              ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:latest
+            
+            sleep 5
+            
+            docker run -d \
+              --name recipe-streamlit \
+              -p 8501:8501 \
+              -e API_URL=http://${{ secrets.EC2_HOST }}:8000 \
+              --restart unless-stopped \
+              ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_STREAMLIT }}:latest
+            
+            docker ps
+      
+      - name: Health Check
+        run: |
+          sleep 30
+          curl -f http://${{ secrets.EC2_HOST }}:8000/health || echo "⚠️ API not responding"
+          curl -f http://${{ secrets.EC2_HOST }}:8501/_stcore/health || echo "⚠️ Streamlit not responding"
