@@ -1,3 +1,9 @@
+# CI/CD Pipeline
+# - Uses a fallback to Dockerfile if Dockerfile.streamlit is missing
+# - Validates required secrets early
+# - Fails on API/Streamlit health check (adjust as needed)
+# - Assumes EC2 has AWS CLI + ECR access (prefer EC2 IAM role)
+
 name: CI/CD Pipeline
 
 on:
@@ -14,46 +20,61 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      
-      - name: Configure AWS credentials
+
+      - name: Validate required secrets
+        run: |
+          set -e
+          : "${{ secrets.AWS_ACCOUNT_ID }}" || { echo "Missing secret: AWS_ACCOUNT_ID"; exit 1; }
+          : "${{ secrets.AWS_ACCESS_KEY_ID }}" || echo "WARN: AWS_ACCESS_KEY_ID not set in runner (may be OK if EC2 has IAM role)"
+          : "${{ secrets.AWS_SECRET_ACCESS_KEY }}" || echo "WARN: AWS_SECRET_ACCESS_KEY not set in runner (may be OK if EC2 has IAM role)"
+          : "${{ secrets.ECR_REPOSITORY_API }}" || { echo "Missing secret: ECR_REPOSITORY_API"; exit 1; }
+          : "${{ secrets.ECR_REPOSITORY_STREAMLIT }}" || { echo "Missing secret: ECR_REPOSITORY_STREAMLIT"; exit 1; }
+          : "${{ secrets.EC2_HOST }}" || { echo "Missing secret: EC2_HOST"; exit 1; }
+          : "${{ secrets.EC2_SSH_KEY }}" || { echo "Missing secret: EC2_SSH_KEY"; exit 1; }
+
+      - name: Configure AWS credentials (for actions that run in the runner)
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-      
-      - name: Login to Amazon ECR
+
+      - name: Login to Amazon ECR (runner)
         uses: aws-actions/amazon-ecr-login@v1
-      
+
       - name: Create minimal requirements files
         run: |
           echo "streamlit>=1.28.0" > requirements_streamlit.txt
           echo "requests>=2.31.0" >> requirements_streamlit.txt
           echo "pillow>=10.0.0" >> requirements_streamlit.txt
-          
+
           echo "fastapi>=0.104.0" > requirements_api.txt
           echo "uvicorn>=0.24.0" >> requirements_api.txt
           echo "numpy==1.24.0" >> requirements_api.txt
           echo "pandas==2.0.0" >> requirements_api.txt
           echo "pillow>=10.0.0" >> requirements_api.txt
           echo "requests>=2.31.0" >> requirements_api.txt
-      
+
       - name: Build and push Streamlit image
         run: |
+          set -e
+          # choose Dockerfile.streamlit if present; otherwise fall back to Dockerfile
+          if [ -f Dockerfile.streamlit ]; then DOCKERFILE=Dockerfile.streamlit; else DOCKERFILE=Dockerfile; fi
           cp requirements_streamlit.txt requirements.txt
-          docker build -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_STREAMLIT }}:latest -f Dockerfile.streamlit .
-          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_STREAMLIT }}:latest
-      
+          docker build -t "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_STREAMLIT }}:latest" -f "$DOCKERFILE" .
+          docker push "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_STREAMLIT }}:latest"
+
       - name: Build and push API image
         run: |
+          set -e
           cp requirements_api.txt requirements.txt
-          docker build -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:latest -f Dockerfile .
-          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:latest
-      
+          docker build -t "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:latest" -f Dockerfile .
+          docker push "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:latest"
+
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -61,38 +82,46 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
             mkdir -p /home/ubuntu/recipe-generator
             cd /home/ubuntu/recipe-generator
-            
+
+            # NOTE: The following aws ecr login command on the remote host requires AWS CLI and credentials on the EC2 instance.
+            # Recommended: attach an IAM role to the EC2 instance with ECR pull permission. If you must use keys, you can export them here (less secure).
             aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
-            
+
             docker stop recipe-api recipe-streamlit 2>/dev/null || true
             docker rm recipe-api recipe-streamlit 2>/dev/null || true
-            docker system prune -f
-            
-            docker pull ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_STREAMLIT }}:latest
-            docker pull ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:latest
-            
+            docker system prune -f || true
+
+            docker pull "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_STREAMLIT }}:latest"
+            docker pull "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:latest"
+
             docker run -d \
               --name recipe-api \
               -p 8000:8000 \
               -e ENVIRONMENT=production \
               --restart unless-stopped \
-              ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:latest
-            
-            sleep 5
-            
+              "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:latest"
+
+            # give API a moment to settle
+            sleep 6
+
             docker run -d \
               --name recipe-streamlit \
               -p 8501:8501 \
-              -e API_URL=http://${{ secrets.EC2_HOST }}:8000 \
+              -e API_URL="http://${{ secrets.EC2_HOST }}:8000" \
               --restart unless-stopped \
-              ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_STREAMLIT }}:latest
-            
+              "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_STREAMLIT }}:latest"
+
             docker ps
-      
-      - name: Health Check
+
+      - name: Health Check (fail workflow if services are down)
         run: |
+          # give containers some time to start
           sleep 30
-          curl -f http://${{ secrets.EC2_HOST }}:8000/health || echo "⚠️ API not responding"
-          curl -f http://${{ secrets.EC2_HOST }}:8501/_stcore/health || echo "⚠️ Streamlit not responding"
+          echo "Checking API health..."
+          curl -fsS "http://${{ secrets.EC2_HOST }}:8000/health" || { echo "ERROR: API health check failed"; exit 1; }
+          echo "Checking Streamlit (root) health..."
+          # Streamlit's internal health endpoint may vary. Check root and a known path; adjust if needed.
+          curl -fsS "http://${{ secrets.EC2_HOST }}:8501/" || { echo "ERROR: Streamlit root is not responding"; exit 1; }
