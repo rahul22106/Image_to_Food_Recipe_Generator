@@ -98,8 +98,8 @@ Pillow
 opencv-python
 
 # Data Processing
-pandas
-numpy
+numpy==1.24.3  # Fixed version
+pandas==2.0.3
 scikit-learn
 
 # Utilities
