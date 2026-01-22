@@ -37,6 +37,46 @@ class RecipePrediction:
         logger.info(f"Initializing Recipe Prediction on {self.device}")
         self._load_components()
     
+    def _load_embeddings_safe(self, embeddings_path: Path) -> Dict:
+        """
+        Load embeddings with numpy version compatibility handling
+        Tries multiple approaches to handle numpy._core incompatibility
+        """
+        try:
+            # Try loading .pkl first (more compatible)
+            pkl_path = embeddings_path.with_suffix('.pkl')
+            if pkl_path.exists():
+                logger.info(f"Loading from pickle file: {pkl_path}")
+                with open(pkl_path, 'rb') as f:
+                    return pickle.load(f)
+            
+            # Try loading .npy with allow_pickle
+            logger.info(f"Loading from numpy file: {embeddings_path}")
+            try:
+                embeddings_dict = np.load(embeddings_path, allow_pickle=True).item()
+                return embeddings_dict
+            except (ModuleNotFoundError, AttributeError) as e:
+                if 'numpy._core' in str(e) or 'numpy.core' in str(e):
+                    logger.warning(f"numpy._core error detected: {e}")
+                    logger.info("Attempting compatibility workaround...")
+                    
+                    # Workaround: Load raw bytes and reconstruct
+                    import numpy.lib.format as npy_format
+                    with open(embeddings_path, 'rb') as f:
+                        version = npy_format.read_magic(f)
+                        shape, fortran, dtype = npy_format._read_array_header(f, version)
+                        count = int(np.prod(shape))
+                        
+                        # Read the pickle data
+                        data = pickle.load(f)
+                        return data
+                else:
+                    raise
+                    
+        except Exception as e:
+            logger.error(f"Failed to load embeddings: {e}")
+            raise CustomException(e, sys)
+    
     def _load_components(self) -> None:
         try:
             logger.info("Loading model...")
@@ -52,12 +92,8 @@ class RecipePrediction:
                 pretrained=True
             )
             
-            logger.info("Loading recipe embeddings...")
-            if self.embeddings_path.suffix == '.npy':
-                embeddings_dict = np.load(self.embeddings_path, allow_pickle=True).item()
-            else:
-                with open(self.embeddings_path, 'rb') as f:
-                    embeddings_dict = pickle.load(f)
+            logger.info("Loading recipe embeddings with compatibility check...")
+            embeddings_dict = self._load_embeddings_safe(self.embeddings_path)
             
             self.recipe_embeddings = embeddings_dict['embeddings']
             recipe_image_ids = embeddings_dict['image_ids']
@@ -202,7 +238,11 @@ def create_prediction_pipeline(
 ) -> RecipePrediction:
     try:
         model_path = model_dir / 'multimodal_model.pth'
-        embeddings_path = embeddings_dir / 'recipe_embeddings.npy'
+        
+        # Try .pkl first, then .npy
+        embeddings_path = embeddings_dir / 'recipe_embeddings.pkl'
+        if not embeddings_path.exists():
+            embeddings_path = embeddings_dir / 'recipe_embeddings.npy'
         
         recipes_csv = list(recipes_dir.glob('*.csv'))
         if not recipes_csv:
