@@ -1,3 +1,6 @@
+# HARD NUMPY LOCK - DO NOT CHANGE
+numpy==1.24.3
+
 # Core Dependencies
 python-dotenv
 ensure
@@ -20,21 +23,15 @@ faiss-cpu
 chromadb
 
 # Image Processing
-# (Pillow, opencv-python-headless installed in Dockerfile)
 opencv-python
 
 # Web Framework
-# (fastapi, uvicorn, python-multipart, pydantic, python-box, pyyaml installed in Dockerfile)
 jinja2
-
-# Data Processing
-# (numpy, pandas, scikit-learn installed in Dockerfile)
 
 # Database
 pymongo
 
 # Utilities
-# (requests, boto3, tqdm installed in Dockerfile)
 aiofiles
 python-jose[cryptography]
 httpx
