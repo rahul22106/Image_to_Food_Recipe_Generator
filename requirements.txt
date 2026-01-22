@@ -1,13 +1,25 @@
-# HARD NUMPY LOCK - DO NOT CHANGE
-numpy==1.24.3
-
-# Core Dependencies
 python-dotenv
 ensure
 types-PyYAML
+pillow==10.0.0
+opencv-python-headless
 
-# AI/ML
-# (torch, torchvision, transformers, sentence-transformers installed in Dockerfile)
+# Web Framework
+fastapi==0.104.0
+uvicorn==0.24.0
+python-multipart
+requests==2.31.0
+jinja2
+
+# Data & Config
+pydantic
+python-box==7.3.2
+pyyaml==6.0.3
+
+# AWS
+boto3
+
+# AI/ML Additional
 accelerate
 sentencepiece
 groq
@@ -22,16 +34,8 @@ langchain-google-genai
 faiss-cpu
 chromadb
 
-# Image Processing
-opencv-python
-
-# Web Framework
-jinja2
-
-# Database
-pymongo
-
 # Utilities
+tqdm
 aiofiles
 python-jose[cryptography]
 httpx

@@ -9,30 +9,44 @@ RUN apt-get update && apt-get install -y \
     libopenblas-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY requirements.txt .
-
-# Upgrade pip first
+# Upgrade pip
 RUN pip install --no-cache-dir --upgrade pip
 
-# 1. Create constraint file
-RUN echo "numpy==1.24.3" > constraints.txt
+# Create constraints file to LOCK numpy
+RUN echo "numpy==1.24.3" > /tmp/constraints.txt
 
-# 2. Install torch with numpy constraint
+# Install ALL packages with constraints file
+COPY requirements.txt .
+
+# ONE COMMAND - Install everything with numpy constraint applied
 RUN pip install --no-cache-dir \
-    -c constraints.txt \
+    -c /tmp/constraints.txt \
+    numpy==1.24.3 \
+    pandas==2.0.3 \
+    scikit-learn \
     torch==2.0.0+cpu \
     torchvision==0.15.0+cpu \
     --index-url https://download.pytorch.org/whl/cpu
 
-# 3. Install requirements with numpy constraint
+# Install transformers and sentence-transformers WITH constraint
 RUN pip install --no-cache-dir \
-    -c constraints.txt \
+    -c /tmp/constraints.txt \
+    transformers \
+    sentence-transformers
+
+# Install remaining requirements WITH constraint
+RUN pip install --no-cache-dir \
+    -c /tmp/constraints.txt \
     -r requirements.txt
+
+# Verify numpy version
+RUN python -c "import numpy; print(f'NumPy version: {numpy.__version__}'); assert numpy.__version__ == '1.24.3', f'Wrong numpy: {numpy.__version__}'"
 
 # Copy application code
 COPY . .
 
+# Expose port
 EXPOSE 8000
 
+# Run application
 CMD ["python", "app.py"]
