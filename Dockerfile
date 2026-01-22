@@ -15,38 +15,19 @@ COPY requirements.txt .
 # Upgrade pip first
 RUN pip install --no-cache-dir --upgrade pip
 
-# Install torch first (CPU version for smaller image)
+# **CHANGE HERE: Install everything in ONE STEP with constraint**
 RUN pip install --no-cache-dir \
+    --constraint <(echo "numpy==1.24.3") \
     torch==2.0.0+cpu \
     torchvision==0.15.0+cpu \
-    --index-url https://download.pytorch.org/whl/cpu
-
-# Install compatible numpy and pandas versions
-RUN pip install --no-cache-dir \
-    numpy==1.24.3 \
-    pandas==2.0.3 \
-    scikit-learn
-
-# Install other core dependencies
-RUN pip install --no-cache-dir \
-    pillow==10.0.0 \
-    fastapi==0.104.0 \
-    uvicorn==0.24.0 \
-    requests==2.31.0 \
-    transformers \
-    sentence-transformers \
-    python-multipart \
-    opencv-python-headless \
-    pydantic \
-    python-box \
-    pyyaml \
-    boto3 \
-    tqdm
+    --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir \
+    --constraint <(echo "numpy==1.24.3") \
+    -r requirements.txt
 
 # Copy application code
 COPY . .
 
-# Expose port
 EXPOSE 8000
 
 CMD ["python", "app.py"]
