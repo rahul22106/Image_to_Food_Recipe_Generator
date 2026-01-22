@@ -1,3 +1,13 @@
+# Core ML dependencies
+numpy==2.0.2
+pandas
+scikit-learn
+torch
+torchvision
+transformers
+sentence-transformers
+
+# Core Dependencies
 python-dotenv
 ensure
 types-PyYAML
@@ -10,6 +20,7 @@ uvicorn==0.24.0
 python-multipart
 requests==2.31.0
 jinja2
+mlflow
 
 # Data & Config
 pydantic
