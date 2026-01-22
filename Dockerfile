@@ -33,6 +33,7 @@ RUN pip install --no-cache-dir \
     fastapi==0.104.0 \
     uvicorn==0.24.0 \
     requests==2.31.0 \
+    transformers \
     sentence-transformers \
     python-multipart \
     opencv-python-headless \

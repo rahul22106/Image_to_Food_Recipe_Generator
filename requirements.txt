@@ -4,9 +4,7 @@ ensure
 types-PyYAML
 
 # AI/ML
-# (torch, torchvision installed in Dockerfile)
-transformers
-sentence-transformers
+# (torch, torchvision, transformers, sentence-transformers installed in Dockerfile)
 accelerate
 sentencepiece
 groq
