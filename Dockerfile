@@ -15,18 +15,22 @@ RUN pip install --no-cache-dir --upgrade pip
 # Create constraints file to LOCK numpy
 RUN echo "numpy==1.24.3" > /tmp/constraints.txt
 
-# Install ALL packages with constraints file
+# Copy requirements
 COPY requirements.txt .
 
-# ONE COMMAND - Install everything with numpy constraint applied
+# Install numpy, pandas, scikit-learn from PyPI with constraint
 RUN pip install --no-cache-dir \
     -c /tmp/constraints.txt \
     numpy==1.24.3 \
     pandas==2.0.3 \
-    scikit-learn \
+    scikit-learn
+
+# Install torch/torchvision from PyTorch index with constraint
+RUN pip install --no-cache-dir \
+    -c /tmp/constraints.txt \
     torch==2.0.0+cpu \
     torchvision==0.15.0+cpu \
-    --index-url https://download.pytorch.org/whl/cpu
+    --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Install transformers and sentence-transformers WITH constraint
 RUN pip install --no-cache-dir \
