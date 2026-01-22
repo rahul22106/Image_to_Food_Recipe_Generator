@@ -35,8 +35,6 @@ python-multipart
 jinja2
 
 # Data Processing
-numpy==1.24.3
-pandas==2.0.3
 scikit-learn
 
 # Database
