@@ -15,14 +15,19 @@ COPY requirements.txt .
 # Upgrade pip first
 RUN pip install --no-cache-dir --upgrade pip
 
-# **CHANGE HERE: Install everything in ONE STEP with constraint**
+# 1. Create constraint file
+RUN echo "numpy==1.24.3" > constraints.txt
+
+# 2. Install torch with numpy constraint
 RUN pip install --no-cache-dir \
-    --constraint <(echo "numpy==1.24.3") \
+    -c constraints.txt \
     torch==2.0.0+cpu \
     torchvision==0.15.0+cpu \
-    --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --no-cache-dir \
-    --constraint <(echo "numpy==1.24.3") \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# 3. Install requirements with numpy constraint
+RUN pip install --no-cache-dir \
+    -c constraints.txt \
     -r requirements.txt
 
 # Copy application code
