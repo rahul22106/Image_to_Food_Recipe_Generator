@@ -2,7 +2,7 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
@@ -24,7 +24,8 @@ RUN pip install --no-cache-dir \
 # Install compatible numpy and pandas versions
 RUN pip install --no-cache-dir \
     numpy==1.24.3 \
-    pandas==2.0.3
+    pandas==2.0.3 \
+    scikit-learn
 
 # Install other core dependencies
 RUN pip install --no-cache-dir \
