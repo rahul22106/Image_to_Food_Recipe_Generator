@@ -1,13 +1,10 @@
 # Core Dependencies
 python-dotenv
-pyyaml
-python-box
 ensure
 types-PyYAML
 
 # AI/ML
-torch
-torchvision
+# (torch, torchvision installed in Dockerfile)
 transformers
 sentence-transformers
 accelerate
@@ -25,13 +22,11 @@ faiss-cpu
 chromadb
 
 # Image Processing
-Pillow
+# (Pillow, opencv-python-headless installed in Dockerfile)
 opencv-python
 
 # Web Framework
-fastapi
-uvicorn[standard]
-python-multipart
+# (fastapi, uvicorn, python-multipart, pydantic, python-box, pyyaml installed in Dockerfile)
 jinja2
 
 # Data Processing
@@ -41,11 +36,9 @@ jinja2
 pymongo
 
 # Utilities
-requests
+# (requests, boto3, tqdm installed in Dockerfile)
 aiofiles
 python-jose[cryptography]
-boto3
-tqdm
 httpx
 orjson
 
@@ -59,7 +52,6 @@ flake8
 loguru
 
 # Data Validation
-pydantic
 pydantic-settings
 
 # Frontend
