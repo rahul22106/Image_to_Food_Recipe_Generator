@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.10-slim  
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -10,17 +10,19 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-# Install Python dependencies with pip
+# Install PyTorch from their index
 RUN pip install --no-cache-dir \
-    numpy \
-    pandas \
-    scikit-learn \
     torch==2.3.0 \
     torchvision==0.18.0 \
     --index-url https://download.pytorch.org/whl/cpu
 
+# Install other packages from PyPI
+RUN pip install --no-cache-dir \
+    numpy \
+    pandas \
+    scikit-learn
+
 # Copy the rest of your application
 COPY . .
 
-# Your application command
 CMD ["python", "app.py"]
