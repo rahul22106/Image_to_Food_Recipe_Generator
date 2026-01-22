@@ -15,18 +15,18 @@ COPY requirements.txt .
 # Upgrade pip first
 RUN pip install --no-cache-dir --upgrade pip
 
-# Install torch first (CPU version)
+# Install torch first (CPU version for smaller image)
 RUN pip install --no-cache-dir \
     torch==2.0.0+cpu \
     torchvision==0.15.0+cpu \
     --index-url https://download.pytorch.org/whl/cpu
 
-# Install numpy and pandas with compatible versions
+# Install compatible numpy and pandas versions
 RUN pip install --no-cache-dir \
     numpy==1.24.3 \
     pandas==2.0.3
 
-# Install other dependencies
+# Install other core dependencies
 RUN pip install --no-cache-dir \
     pillow==10.0.0 \
     fastapi==0.104.0 \
@@ -34,7 +34,12 @@ RUN pip install --no-cache-dir \
     requests==2.31.0 \
     sentence-transformers \
     python-multipart \
-    opencv-python-headless
+    opencv-python-headless \
+    pydantic \
+    python-box \
+    pyyaml \
+    boto3 \
+    tqdm
 
 # Copy application code
 COPY . .

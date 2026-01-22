@@ -5,16 +5,17 @@ python-box
 ensure
 types-PyYAML
 
-# AI/ML - Free Models
-groq
-google-generativeai
-transformers
+# AI/ML
 torch
 torchvision
+transformers
+sentence-transformers
 accelerate
 sentencepiece
+groq
+google-generativeai
 
-# LangChain - For Advanced AI Features
+# LangChain
 langchain
 langchain-community
 langchain-core
@@ -34,22 +35,27 @@ python-multipart
 jinja2
 
 # Data Processing
-pandas
-numpy
+numpy==1.24.3
+pandas==2.0.3
 scikit-learn
 
-# Database (Optional - for saving recipes)
+# Database
 pymongo
 
 # Utilities
 requests
 aiofiles
 python-jose[cryptography]
+boto3
+tqdm
+httpx
+orjson
 
 # Testing
 pytest
 pytest-cov
 pytest-asyncio
+flake8
 
 # Logging
 loguru
@@ -58,58 +64,5 @@ loguru
 pydantic
 pydantic-settings
 
-# Progress Bars
-tqdm
-
-# JSON handling
-orjson
-
-# HTTP Client
-httpx
-
-box
-boto3
-
-ensure
-
-sentence-transformers
-# FastAPI and Server
-fastapi
-uvicorn[standard]
-python-multipart
-
-# Core Dependencies 
-python-dotenv
-pyyaml
-python-box
-ensure
-types-PyYAML
-
-# AI/ML
-torch
-torchvision
-transformers
-sentence-transformers
-accelerate
-sentencepiece
-
-# Image Processing
-Pillow
-opencv-python
-
-# Data Processing
-numpy==1.24.3  # Fixed version
-pandas==2.0.3
-scikit-learn
-
-# Utilities
-requests
-tqdm
-
-# Progress Bars
-box
-boto3
-
-flake8
-pytest
+# Frontend
 streamlit
