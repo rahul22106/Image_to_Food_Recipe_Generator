@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir \
 
 # Install other packages from PyPI
 RUN pip install --no-cache-dir \
-    numpy \
+    numpy = 2.0.2 \
     pandas \
     scikit-learn
 
