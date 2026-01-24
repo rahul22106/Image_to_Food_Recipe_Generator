@@ -177,9 +177,9 @@ def main():
                 else:
                     image = Image.open(uploaded_file)
                 
-                st.image(image, caption="Uploaded Image", use_container_width=True)
+                st.image(image, caption="Uploaded Image", use_column_width=True)
                 
-                if st.button("🔍 Predict Recipes", type="primary", use_container_width=True):
+                if st.button("🔍 Predict Recipes", type="primary", use_column_width=True):
                     with st.spinner("🤖 AI is analyzing your image..."):
                         if isinstance(uploaded_file, bytes):
                             image_bytes = uploaded_file
