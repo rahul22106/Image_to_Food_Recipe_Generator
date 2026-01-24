@@ -1,16 +1,23 @@
-version: "3.8"
+version: '3.8'
 
 services:
-  api:
-    image: ${IMAGE_API:-recipe-generator-api:latest}
-    container_name: recipe-api
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: recipe-generator-api
     ports:
       - "8000:8000"
+    command: uvicorn app:app --host 0.0.0.0 --port 8000
     volumes:
       - ./artifacts:/app/artifacts
       - ./logs:/app/logs
     environment:
       - PYTHONUNBUFFERED=1
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-ap-south-1}
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-mlruns}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -22,15 +29,21 @@ services:
       - recipe-network
 
   streamlit:
-    image: ${IMAGE_STREAMLIT:-recipe-generator-streamlit:latest}
-    container_name: recipe-streamlit
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: recipe-generator-streamlit
     ports:
       - "8501:8501"
+    command: streamlit run streamlit_app.py --server.port=8501 --server.address=0.0.0.0
+    volumes:
+      - ./artifacts:/app/artifacts
     environment:
       - PYTHONUNBUFFERED=1
-      - API_URL=http://api:8000
+      - API_URL=http://fastapi:8000
     depends_on:
-      - api
+      fastapi:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
       interval: 30s
