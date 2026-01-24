@@ -21,3 +21,6 @@ sudo sh get-docker.sh
 sudo usermod -aG docker ubuntu
 
 newgrp docker
+
+cd actions-runner
+./run.sh
